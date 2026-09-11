@@ -8,10 +8,17 @@ interface Option {
   label: string
 }
 
-interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'children'> {
+const sizeClass = {
+  lg: 'text-h4 h-14 px-4 pr-11',
+  md: 'text-body1 h-[42px] px-3 pr-10',
+  sm: 'text-body2 h-[30px] px-3 pr-8',
+} as const
+
+interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'children' | 'size'> {
   label?: string
   options: Option[]
-  /** 선택 전 안내 문구. 지정하면 value='' 인 비활성 옵션이 맨 앞에 추가됩니다 */
+  /** lg 56 · md 42 · sm 30 (px). sm 은 필터 바의 칩, lg 는 큰 창의 폼 */
+  size?: 'lg' | 'md' | 'sm'
   placeholder?: string
   helperText?: string
   error?: string
@@ -26,10 +33,12 @@ interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'chi
 export default function Select({
   label,
   options,
+  size = 'md',
   placeholder,
   helperText,
   error,
   disabled,
+  required,
   id,
   className,
   ...rest
@@ -46,6 +55,7 @@ export default function Select({
       {label && (
         <label htmlFor={selectId} className="font-heading text-body2 text-text font-semibold">
           {label}
+          {required && <span className="text-danger ml-0.5">*</span>}
         </label>
       )}
 
@@ -53,10 +63,12 @@ export default function Select({
         <select
           id={selectId}
           disabled={disabled}
+          required={required}
           aria-invalid={hasError || undefined}
           aria-describedby={message ? messageId : undefined}
           className={cn(
-            'text-body1 text-text h-11 w-full appearance-none rounded-md border px-3.5 pr-10 transition-colors',
+            'text-text w-full appearance-none rounded-sm border transition-colors',
+            sizeClass[size],
             'disabled:bg-surface-muted disabled:text-text-disabled disabled:cursor-not-allowed',
             hasError
               ? 'border-danger focus:border-danger'

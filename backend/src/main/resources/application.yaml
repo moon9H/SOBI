@@ -14,10 +14,14 @@ spring:
       hibernate:
         format_sql: true
 
-  # Flyway는 spring 바로 아래 (spring.jpa 아래가 아님)
+
   flyway:
     enabled: true
     baseline-on-migrate: true   # 기존 빈 DB에 처음 붙을 때 안전장치
+    locations:
+      - classpath:db/migration
+      - classpath:db/seed/local # 더미데이터용 경로. 이거는 배포시에는 삭제해야함
+
 
   data:
     redis:
@@ -34,6 +38,27 @@ spring:
     mapper:
       sort-properties-alphabetically: false
 
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-exp: ${JWT_ACCESS_EXP:1800000}
+  refresh-exp: ${JWT_REFRESH_EXP:1209600000}
+
 server:
   servlet:
     context-path: /api
+
+ssafy:
+  finance:
+    base-url: ${SSAFY_FINANCE_BASE_URL}
+    api-key: ${SSAFY_FINANCE_API_KEY}
+    institution-code: "00100"
+    fintech-app-no: "001"

@@ -29,7 +29,20 @@ interface TableProps<T> {
   skeletonRows?: number
   /** rows 가 비었을 때 그릴 것. 안 주면 기본 문구가 나간다 */
   empty?: ReactNode
+  /**
+   * 행마다 다른 클래스. 특정 행을 강조할 때 쓴다 (상권 비교표에서 조회한 행정동).
+   *
+   * cn 은 tailwind-merge 가 아니라 뒤에 이어 붙이기만 한다. 기본 클래스와 겹치는
+   * 유틸리티를 넣으면 CSS 에서 나중에 선언된 쪽이 우선되므로, 배경색처럼 겹치는 것을
+   * 넘길 때는 결과를 눈으로 확인해야 한다.
+   */
+  rowClassName?: (row: T) => string | undefined
   onRowClick?: (row: T) => void
+  /**
+   * 자기 테두리를 그릴지. 검색창과 표가 하나의 흰 프레임 안에 들어가는 화면에서는
+   * false 로 둔다 — 표가 테두리를 또 그리면 두 겹이 된다.
+   */
+  bordered?: boolean
   className?: string
 }
 
@@ -60,6 +73,7 @@ export default function Table<T>({
   skeletonRows = 5,
   empty,
   onRowClick,
+  bordered = true,
   className,
 }: TableProps<T>) {
   const isClickable = Boolean(onRowClick)
@@ -75,7 +89,8 @@ export default function Table<T>({
   return (
     <div
       className={cn(
-        'border-border bg-surface overflow-x-auto rounded-lg border',
+        'overflow-x-auto',
+        bordered && 'border-border bg-surface rounded-md border',
         className,
       )}
     >
@@ -116,7 +131,10 @@ export default function Table<T>({
             <tr>
               <td colSpan={columns.length} className="p-0">
                 {empty ?? (
-                  <EmptyState title="표시할 내용이 없어요" description="조건을 바꿔서 다시 찾아보세요." />
+                  <EmptyState
+                    title="표시할 내용이 없어요"
+                    description="조건을 바꿔서 다시 찾아보세요."
+                  />
                 )}
               </td>
             </tr>

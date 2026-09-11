@@ -3,7 +3,14 @@ import { useId } from 'react'
 
 import { cn } from '@/shared/utils/cn'
 
+const sizeClass = {
+  lg: 'text-h4 h-14 px-4',
+  md: 'text-body1 h-[42px] px-3',
+} as const
+
 interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
+  /** lg 56 · md 42 (px). lg 는 본인확인처럼 큰 창의 폼 */
+  size?: 'lg' | 'md'
   label?: string
   /** 입력칸 아래 안내 문구. error 가 있으면 가려집니다 */
   helperText?: string
@@ -21,11 +28,13 @@ interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'>
  *   error={passwordError ?? undefined}
  */
 export default function Input({
+  size = 'md',
   label,
   helperText,
   error,
   rightSlot,
   disabled,
+  required,
   id,
   className,
   ...rest
@@ -42,6 +51,8 @@ export default function Input({
       {label && (
         <label htmlFor={inputId} className="font-heading text-body2 text-text font-semibold">
           {label}
+          {/* 폼에 noValidate 를 걸어도 required 는 낭독기에 필수 항목임을 알린다 */}
+          {required && <span className="text-danger ml-0.5">*</span>}
         </label>
       )}
 
@@ -49,10 +60,12 @@ export default function Input({
         <input
           id={inputId}
           disabled={disabled}
+          required={required}
           aria-invalid={hasError || undefined}
           aria-describedby={message ? messageId : undefined}
           className={cn(
-            'text-body1 text-text h-11 w-full rounded-md border px-3.5 transition-colors',
+            'text-text w-full rounded-sm border transition-colors',
+            sizeClass[size],
             'placeholder:text-text-disabled',
             'disabled:bg-surface-muted disabled:text-text-disabled disabled:cursor-not-allowed',
             hasError

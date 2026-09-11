@@ -33,9 +33,22 @@ export const queryKeys = {
     list: ['notification', 'list'] as const,
   },
 
+  market: {
+    all: ['market'] as const,
+    analysis: (params: object) => ['market', 'analysis', params] as const,
+  },
+
   loan: {
     all: ['loan'] as const,
     list: (params: object) => ['loan', 'list', params] as const,
     detail: (loanId: number) => ['loan', 'detail', loanId] as const,
+  },
+
+  supportProgram: {
+    all: ['supportProgram'] as const,
+    list: (params: object) => ['supportProgram', 'list', params] as const,
+    detail: (supportProgramId: number) => ['supportProgram', 'detail', supportProgramId] as const,
+    /** 자연어 검색 (193). 목록과 엔드포인트·메서드가 달라 키도 나눈다 */
+    search: (params: object) => ['supportProgram', 'search', params] as const,
   },
 } as const

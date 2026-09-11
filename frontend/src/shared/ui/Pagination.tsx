@@ -1,6 +1,8 @@
 import { cn } from '@/shared/utils/cn'
 import { getPageItems, PAGE_ELLIPSIS } from '@/shared/utils/pagination'
 
+// 서버 페이징(PageMeta) 용 페이지네이션.
+
 interface PaginationProps {
   /** 현재 페이지 (1-base) */
   page: number
@@ -12,7 +14,7 @@ interface PaginationProps {
 }
 
 const itemBase =
-  'inline-flex h-9 min-w-9 items-center justify-center rounded-md px-2 text-body2 transition-colors'
+  'inline-flex h-9 min-w-9 items-center justify-center rounded-sm px-2 text-body2 transition-colors'
 const itemIdle = 'text-text-secondary hover:bg-surface-muted'
 const itemActive = 'bg-primary text-text-inverse font-semibold'
 

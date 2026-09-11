@@ -1,6 +1,7 @@
-import { createBrowserRouter, redirect } from 'react-router'
+import { createBrowserRouter } from 'react-router'
 
 import { AppLayout } from '@/app/layouts/AppLayout'
+import { AuthLayout } from '@/app/layouts/AuthLayout'
 import { RootLayout } from '@/app/layouts/RootLayout'
 import { ProtectedRoute } from '@/app/routes/ProtectedRoute'
 import { PublicOnlyRoute } from '@/app/routes/PublicOnlyRoute'
@@ -23,23 +24,74 @@ export const router = createBrowserRouter([
     ErrorBoundary: RouteError,
     children: [
       {
-        index: true,
-        // 랜딩 페이지가 정해지기 전까지는 대시보드로 보낸다.
-        // 비로그인이면 ProtectedRoute 가 다시 /login 으로 넘긴다.
-        loader: () => redirect(ROUTES.DASHBOARD),
-      },
-      {
         Component: PublicOnlyRoute,
         children: [
           {
-            path: ROUTES.LOGIN,
-            lazy: async () => ({ Component: (await import('@/pages/LoginPage')).LoginPage }),
+            // 로그인 상태면 PublicOnlyRoute 가 대시보드로 넘긴다.
+            // 랜딩은 자체 헤더를 갖는 마케팅 페이지라 AuthLayout 아래가 아니다
+            index: true,
+            lazy: async () => ({ Component: (await import('@/pages/LandingPage')).LandingPage }),
+          },
+          {
+            // 브랜드 바 + 가운데 정렬 카드가 붙는 자리
+            Component: AuthLayout,
+            children: [
+              {
+                path: ROUTES.LOGIN,
+                lazy: async () => ({ Component: (await import('@/pages/LoginPage')).LoginPage }),
+              },
+              {
+                path: ROUTES.TERMS,
+                lazy: async () => ({ Component: (await import('@/pages/TermsPage')).TermsPage }),
+              },
+              {
+                path: ROUTES.SIGN_UP,
+                lazy: async () => ({ Component: (await import('@/pages/SignUpPage')).SignUpPage }),
+              },
+              {
+                path: ROUTES.PASSWORD_RESET,
+                lazy: async () => ({
+                  Component: (await import('@/pages/PasswordResetPage')).PasswordResetPage,
+                }),
+              },
+            ],
           },
         ],
       },
       {
         Component: ProtectedRoute,
         children: [
+          {
+            // 온보딩은 로그인이 필요하지만(POST /business 가 Authorization 필수)
+            // 사이드바를 붙이지 않는다 — 아직 대시보드를 본 적 없는 사용자다
+            Component: AuthLayout,
+            children: [
+              {
+                path: ROUTES.BUSINESS_VERIFY,
+                lazy: async () => ({
+                  Component: (await import('@/pages/BusinessVerifyPage')).BusinessVerifyPage,
+                }),
+              },
+              {
+                path: ROUTES.MYDATA_CONSENT,
+                lazy: async () => ({
+                  Component: (await import('@/pages/MyDataConsentPage')).MyDataConsentPage,
+                }),
+              },
+              {
+                path: ROUTES.MYDATA_COLLECT,
+                lazy: async () => ({
+                  Component: (await import('@/pages/MyDataCollectPage')).MyDataCollectPage,
+                }),
+              },
+              {
+                path: ROUTES.MYDATA_JUDGING,
+                lazy: async () => ({
+                  Component: (await import('@/pages/MyDataJudgingPage')).MyDataJudgingPage,
+                }),
+              },
+            ],
+          },
           {
             // 사이드바·상단바가 붙는 자리. 로그인 화면은 위 PublicOnlyRoute 쪽이라 안 붙는다
             Component: AppLayout,
@@ -49,6 +101,54 @@ export const router = createBrowserRouter([
                 lazy: async () => ({
                   Component: (await import('@/pages/DashboardPage')).DashboardPage,
                 }),
+              },
+              {
+                path: ROUTES.MARKET_ANALYSIS,
+                lazy: async () => ({
+                  Component: (await import('@/pages/MarketAnalysisPage')).MarketAnalysisPage,
+                }),
+              },
+              {
+                path: ROUTES.LOANS,
+                lazy: async () => ({
+                  Component: (await import('@/pages/LoanListPage')).LoanListPage,
+                }),
+                children: [
+                  {
+                    /*
+                     * 상품 상세 모달. 목록 위에 뜨고 목록은 뒤에 남는다.
+                     * ROUTES.LOAN_DETAIL 은 '/loans/:loanId' 전체 경로라 여기서는
+                     * 상대 경로를 쓴다. 링크는 routeTo.loanDetail() 로 만든다.
+                     */
+                    path: ':loanId',
+                    lazy: async () => ({
+                      Component: (await import('@/features/loan/components/LoanDetailRoute'))
+                        .default,
+                    }),
+                  },
+                ],
+              },
+              {
+                path: ROUTES.SUPPORT_PROGRAMS,
+                lazy: async () => ({
+                  Component: (await import('@/pages/SupportProgramListPage'))
+                    .SupportProgramListPage,
+                }),
+                children: [
+                  {
+                    /*
+                     * 공고 상세 모달. 목록 위에 뜨고 목록은 뒤에 남는다.
+                     * ROUTES.SUPPORT_PROGRAM_DETAIL 은 전체 경로라 여기서는 상대 경로를
+                     * 쓴다. 링크는 routeTo.supportProgramDetail() 로 만든다.
+                     */
+                    path: ':supportProgramId',
+                    lazy: async () => ({
+                      Component: (
+                        await import('@/features/support-program/components/SupportProgramDetailRoute')
+                      ).default,
+                    }),
+                  },
+                ],
               },
             ],
           },
