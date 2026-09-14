@@ -13,4 +13,16 @@ public interface AuthService {
     void signup(SignupRequest request);
 
     LoginResponse login(LoginRequest request);
+
+    RefreshResponse refresh(String refreshToken);
+
+    void logout(Long userId);
+
+    ResetVerifyResponse verifyEmailForReset(String email, String verificationCode);
+
+    void resetPassword(PasswordResetRequest request);
+
+    LoginResponse oauthLogin(String provider, OAuthLoginRequest request);
+
+    SocialLinkResponse linkSocial(Long userId, String provider, OAuthLoginRequest request);
 }

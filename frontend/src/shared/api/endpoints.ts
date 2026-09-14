@@ -7,7 +7,7 @@ export const API_BASE_URL = '/api/v1'
 /**
  * 엔드포인트 경로. `API_BASE_URL` 이 붙으므로 여기엔 `/api/v1` 을 쓰지 않는다.
  *
- * 아직 백엔드 명세가 없어 MSW 핸들러(`mocks/handlers/auth.ts`)가 잡아둔 auth 만 있다.
+ * 백엔드 구현(`AuthController` 등)을 기준으로 한다. Notion 명세와 다르면 구현이 맞다.
  * 각 feature 작업을 시작할 때 여기에 추가한다.
  */
 export const endpoints = {
@@ -15,16 +15,33 @@ export const endpoints = {
     login: '/auth/login',
     logout: '/auth/logout',
     signUp: '/auth/signup',
-    /** refreshToken 쿠키로 accessToken 재발급 */
-    reissue: '/auth/reissue',
-    /** 로그인한 본인 정보. 세션 복구에서 재발급 직후 호출한다 */
-    me: '/auth/me',
+    /** refreshToken 쿠키로 accessToken 재발급. 응답에 expiresIn 이 없다 */
+    refresh: '/auth/refresh',
+    /** query `email`. 응답의 isDuplicate 가 true 면 **이미 쓰는 이메일**이다 */
     emailCheck: '/auth/email/check',
+    /** 인증번호 발송. 1분 쿨다운이 있고 걸리면 429 AUTH_002 */
+    emailSend: '/auth/email/send',
+    /** 가입용 인증번호 검증. 이걸 통과해야 signup 이 된다 */
+    emailVerify: '/auth/email/verify',
+    /** 재설정용 인증번호 검증. 가입용과 달리 resetToken 을 돌려준다 */
+    emailVerifyReset: '/auth/email/verify/reset',
+    /** 비밀번호 재설정. resetToken 과 새 비밀번호를 보낸다 */
+    passwordReset: '/auth/password/reset',
+    /** 소셜 로그인·회원가입. 응답은 `/auth/login` 과 같은 모양 */
+    oauth: (provider: string) => `/auth/oauth/${provider}`,
+    /** 로컬 → 소셜 전환. **인증 필요** */
+    social: (provider: string) => `/auth/social/${provider}`,
+  },
+
+  /** ⚠️ 백엔드 `com.sobi.user` 에 controller 가 없다. 목으로만 돈다 (S15P21D101-377) */
+  user: {
+    /** 로그인한 본인 정보. 세션 복구에서 재발급 직후 호출한다 */
+    me: '/user/me',
   },
 
   business: {
-    /** 사이드바 하단 카드에 쓰는 내 업체 요약(상호·지역·업종명). 미등록이면 404 */
-    meSummary: '/businesses/me/summary',
+    /** 사이드바 하단 카드에 쓰는 내 업체 정보. 미등록이면 404 BUSINESS_O04 */
+    me: '/business/me',
   },
 
   /**
@@ -34,14 +51,50 @@ export const endpoints = {
   common: {
     /** 상권 분석. dongCode·businessCode 는 필수, compareLimit·mixLimit 은 선택 */
     market: '/common/market',
-    /** 업종 대/중/소 목록. group·parent 로 단계를 지정한다 */
-    businessCode: '/common/businessCode',
+    /** 업종 대/중/소 목록. 트리 하나로 통째로 온다 */
+    businesses: '/common/market/businesses',
+    /** 서울 자치구 + 행정동 목록. 트리 하나로 통째로 온다 */
+    regions: '/common/market/regions',
   },
 
   loan: {
     /** 대출 상품 목록. 필터·정렬·페이징은 쿼리 파라미터로 붙인다 */
     list: '/loan',
     detail: (loanId: number) => `/loan/${loanId}`,
+  },
+
+  /** 마이데이터로 불러온 입출금 계좌. 서버가 COMMON 타입만 걸러서 준다 */
+  account: {
+    list: '/account/list',
+  },
+
+  /**
+   * 신청. 생성은 쿼리로 대상을 받고, 나머지는 applicationId 로 가리킨다.
+   *
+   * 명세에는 경로 변수가 {programId} 로 적혀 있지만 예시 응답의 path 가
+   * /application/12 이고 그 12 가 applicationId 다. 확정시 변경할 것.
+   */
+  application: {
+    create: '/application',
+    detail: (applicationId: number) => `/application/${applicationId}`,
+    cancel: (applicationId: number) => `/application/${applicationId}`,
+    /** 최종 신청. body 에 applicationId·applyAmount·accountNo */
+    submit: '/application/finan',
+    /** 서류 업로드. multipart. 작성 서류도 같은 곳으로 올리고 검증만 안 한다 */
+    uploadDocument: '/document',
+    /** 작성 서류 초안 생성. 비동기로 돌고 상세 조회로 결과를 받는다 */
+    requestDraft: '/document/draft',
+  },
+
+  /**
+   * 자금 조합. 목표 금액을 채우는 상품 조합을 서버가 추천한다.
+   * 조회인데 POST 인 건 요청 body 로 조건을 받기 때문이다.
+   */
+  funding: {
+    /** 조합 추천. body 에 targetAmount */
+    recommend: '/funding/recommend',
+    /** 고른 조합으로 신청 목록 생성 */
+    batch: '/funding/batch',
   },
 
   /**
@@ -84,8 +137,7 @@ export const endpoints = {
     list: '/insurance',
     /** ⚠️ 경로 변수는 insurance.id 가 아니라 insurance_checklist.id 다 */
     detail: (insuranceChecklistId: number) => `/insurance/${insuranceChecklistId}`,
-    changeStatus: (insuranceChecklistId: number) =>
-      `/insurance/${insuranceChecklistId}/status`,
+    changeStatus: (insuranceChecklistId: number) => `/insurance/${insuranceChecklistId}/status`,
   },
 
   /** role 로 사업자·예비창업자를 갈라 서로 다른 모양을 준다 */
@@ -112,5 +164,5 @@ export const endpoints = {
 export const NO_REISSUE_PATHS: readonly string[] = [
   endpoints.auth.login,
   endpoints.auth.signUp,
-  endpoints.auth.reissue,
+  endpoints.auth.refresh,
 ]

@@ -52,6 +52,12 @@ jwt:
   access-exp: ${JWT_ACCESS_EXP:1800000}
   refresh-exp: ${JWT_REFRESH_EXP:1209600000}
 
+oauth:
+  google:
+    client-id: ${GOOGLE_CLIENT_ID}
+    client-secret: ${GOOGLE_CLIENT_SECRET}
+    token-uri: https://oauth2.googleapis.com/token
+
 server:
   servlet:
     context-path: /api
@@ -62,3 +68,7 @@ ssafy:
     api-key: ${SSAFY_FINANCE_API_KEY}
     institution-code: "00100"
     fintech-app-no: "001"
+
+loan:
+  product-sync:
+    enabled: ${LOAN_PRODUCT_SYNC_ENABLED:true}   # 부팅 시 미등록 대출 상품을 금융망에 등록

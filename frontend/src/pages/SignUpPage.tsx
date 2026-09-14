@@ -4,9 +4,14 @@ import { useNavigate } from 'react-router'
 import AuthCodeField from '@/features/auth/components/AuthCodeField'
 import GoogleAuthButton from '@/features/auth/components/GoogleAuthButton'
 import OrDivider from '@/features/auth/components/OrDivider'
+import PasswordStrengthMeter from '@/features/auth/components/PasswordStrengthMeter'
 import { useCountdown } from '@/features/auth/hooks/useCountdown'
+import { useSendEmailCode, useSignUp, useVerifyEmailCode } from '@/features/auth/hooks/useSignUp'
+import { buildAuthorizeUrl, isGoogleOAuthConfigured } from '@/features/auth/model/googleOAuth'
+import { ERROR_CODE, getErrorCode, getErrorMessage } from '@/shared/api/errors'
 import { ROUTES } from '@/shared/constants/routes'
 import { VALIDATION_MESSAGE } from '@/shared/constants/validation'
+import { useUiStore } from '@/shared/lib/store/useUiStore'
 import Button from '@/shared/ui/Button'
 import Input from '@/shared/ui/Input'
 import {
@@ -17,7 +22,7 @@ import {
   validateRequired,
 } from '@/shared/utils/validators'
 
-/** 인증번호 유효시간(초). 서버 정책이 확정되면 맞춰야 한다 */
+/** 인증번호 유효시간(초). 서버 Redis TTL 과 맞춰야 한다 */
 const CODE_TTL_SECONDS = 300
 
 const MESSAGE = {
@@ -44,38 +49,87 @@ export function SignUpPage() {
   const [errors, setErrors] = useState<Errors>({})
 
   const { remaining, running, start, stop } = useCountdown()
+  const showToast = useUiStore((s) => s.showToast)
+
+  const { mutate: sendCode, isPending: sending } = useSendEmailCode()
+  const { mutate: verifyCode, isPending: verifying } = useVerifyEmailCode()
+  const { mutate: submitSignUp, isPending: submitting } = useSignUp()
 
   const clearError = (field: keyof Errors) =>
     setErrors((previous) => ({ ...previous, [field]: undefined }))
 
+  const setError = (field: keyof Errors, message: string) =>
+    setErrors((previous) => ({ ...previous, [field]: message }))
+
   const handleSendCode = () => {
     const emailError = validateEmail(email)
     if (emailError) {
-      setErrors((previous) => ({ ...previous, email: emailError }))
+      setError('email', emailError)
       return
     }
 
-    // TODO(136): GET /auth/email/check?email= → data.isDuplication 이 true 면
-    //   VALIDATION_MESSAGE.emailDuplicated 를 email 에 세우고 중단.
-    //   통과하면 POST /auth/email/send
-    setCodeSent(true)
-    setVerified(false)
-    setCode('')
-    start(CODE_TTL_SECONDS)
+    sendCode(email, {
+      onSuccess: (available) => {
+        // 중복은 에러가 아니라 정상 응답이다. 메일도 안 나갔으니 코드 칸을 열지 않는다
+        if (!available) {
+          setError('email', VALIDATION_MESSAGE.emailDuplicated)
+          return
+        }
+
+        setCodeSent(true)
+        setVerified(false)
+        setCode('')
+        start(CODE_TTL_SECONDS)
+      },
+      onError: (error) => {
+        const message =
+          getErrorCode(error) === ERROR_CODE.MAIL_COOLDOWN
+            ? VALIDATION_MESSAGE.emailSendCooldown
+            : getErrorMessage(error)
+
+        setError('email', message)
+      },
+    })
   }
 
   const handleVerifyCode = () => {
     const codeError = validateAuthCode(code)
     if (codeError) {
-      setErrors((previous) => ({ ...previous, code: codeError }))
+      setError('code', codeError)
       return
     }
 
-    // TODO(136): POST /auth/email/verify { email, verificationCode }
-    //   코드가 틀려도 200 + data.verified: false 로 오므로 토스트가 아니라
-    //   VALIDATION_MESSAGE.authCodeInvalid 를 code 에 세운다
-    setVerified(true)
-    stop()
+    verifyCode(
+      { email, verificationCode: code },
+      {
+        onSuccess: () => {
+          setVerified(true)
+          stop()
+        },
+        /*
+         * 만료·불일치가 200 이 아니라 400 으로 온다. 토스트가 아니라 코드 칸 밑에
+         * 붙여야 어디를 고쳐야 하는지 바로 보인다.
+         */
+        onError: (error) => {
+          // 입력값 state 인 `code` 와 이름이 겹치지 않게 errorCode 로 둔다
+          const errorCode = getErrorCode(error)
+
+          // 가입은 계정이 없는 게 정상이라 AUTH_003 이 진짜 만료뿐이다. 그대로 안내한다
+          if (errorCode === ERROR_CODE.CODE_EXPIRED) {
+            setError('code', VALIDATION_MESSAGE.authCodeExpired)
+            stop()
+            return
+          }
+
+          setError(
+            'code',
+            errorCode === ERROR_CODE.CODE_MISMATCH
+              ? VALIDATION_MESSAGE.authCodeInvalid
+              : getErrorMessage(error),
+          )
+        },
+      },
+    )
   }
 
   const handleSubmit = (event: React.FormEvent) => {
@@ -92,9 +146,40 @@ export function SignUpPage() {
     setErrors(next)
     if (Object.values(next).some(Boolean)) return
 
-    // TODO(136): POST /auth/signup { email, password, name }
-    //   응답에 토큰이 없어서 자동 로그인이 안 된다 — 성공 토스트 후 로그인 화면으로 보낸다
-    navigate(ROUTES.LOGIN)
+    submitSignUp(
+      { email, password, name },
+      {
+        // 응답에 토큰이 없어 자동 로그인이 안 된다. 로그인 화면으로 보낸다
+        onSuccess: () => {
+          showToast('가입이 완료됐어요. 로그인해 주세요.')
+          navigate(ROUTES.LOGIN, { replace: true })
+        },
+        onError: (error) => {
+          const errorCode = getErrorCode(error)
+
+          // 발송 전에 확인했지만 그 사이 누가 같은 주소로 가입할 수 있다
+          if (errorCode === ERROR_CODE.EMAIL_DUPLICATED) {
+            setError('email', VALIDATION_MESSAGE.emailDuplicated)
+            return
+          }
+
+          /*
+           * 화면은 인증을 통과했는데 서버 쪽 기록이 없는 경우. 인증 후 한참 뒤에
+           * 가입 버튼을 누르면 서버 기록이 먼저 만료된다. 인증 단계로 되돌리되
+           * 이전 코드는 지운다 — 이미 소진된 값이다.
+           */
+          if (errorCode === ERROR_CODE.EMAIL_NOT_VERIFIED) {
+            setVerified(false)
+            setCode('')
+            setError('code', VALIDATION_MESSAGE.authCodeRecordExpired)
+            return
+          }
+
+          // 금융망 가입(EXTERNAL_001) 실패 등. 어느 칸의 문제가 아니라 토스트가 맞다
+          showToast(getErrorMessage(error), 'danger')
+        },
+      },
+    )
   }
 
   return (
@@ -138,8 +223,12 @@ export function SignUpPage() {
                 setEmail(event.target.value)
                 setCodeSent(false)
                 setVerified(false)
+                setCode('')
                 stop()
+
+                // 이메일을 바꾸면 이전 주소로 받은 코드는 의미가 없다. 입력값과 에러를 같이 지운다
                 clearError('email')
+                clearError('code')
               }}
               error={errors.email}
               helperText={codeSent && !errors.email ? MESSAGE.emailAvailable : undefined}
@@ -149,6 +238,7 @@ export function SignUpPage() {
             <Button
               variant="outline"
               onClick={handleSendCode}
+              loading={sending}
               disabled={verified || running}
               className="w-[116px] shrink-0 whitespace-nowrap"
             >
@@ -167,7 +257,7 @@ export function SignUpPage() {
               clearError('code')
             }}
             remaining={remaining}
-            actionLabel="확인"
+            actionLabel={verifying ? '확인 중' : '확인'}
             onAction={handleVerifyCode}
             verified={verified}
             error={errors.code}
@@ -175,20 +265,23 @@ export function SignUpPage() {
           />
         )}
 
-        <Input
-          className="mt-4"
-          label="비밀번호"
-          required
-          type="password"
-          autoComplete="new-password"
-          value={password}
-          onChange={(event) => {
-            setPassword(event.target.value)
-            clearError('password')
-          }}
-          error={errors.password}
-          helperText="영문·숫자·특수문자 조합 8자 이상"
-        />
+        {/* 재설정 화면과 같은 구성이다 — 강도 막대를 Input 바깥에 두고 간격만 맞춘다 */}
+        <div className="mt-4">
+          <Input
+            label="비밀번호"
+            required
+            type="password"
+            autoComplete="new-password"
+            value={password}
+            onChange={(event) => {
+              setPassword(event.target.value)
+              clearError('password')
+            }}
+            error={errors.password}
+            helperText="영문·숫자·특수문자 조합 8자 이상"
+          />
+          <PasswordStrengthMeter password={password} className="mt-2" />
+        </div>
 
         <Input
           className="mt-4"
@@ -209,15 +302,21 @@ export function SignUpPage() {
           }
         />
 
-        <Button type="submit" className="mt-5 w-full">
+        <Button type="submit" loading={submitting} className="mt-5 w-full">
           가입하기
         </Button>
       </form>
 
       <OrDivider />
 
-      {/* TODO(136): /auth/oauth/{provider} 명세가 다른 프로젝트 템플릿이라 비워둔다 */}
-      <GoogleAuthButton label="가입" />
+      {/* 구글은 가입·로그인이 같은 흐름이다. 처음이면 서버가 isNewUser 로 알려준다 */}
+      <GoogleAuthButton
+        label="가입"
+        disabled={!isGoogleOAuthConfigured()}
+        onClick={() => {
+          window.location.assign(buildAuthorizeUrl())
+        }}
+      />
     </div>
   )
 }

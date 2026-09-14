@@ -8,7 +8,6 @@
 
 const TEN_THOUSAND = 10_000
 const HUNDRED_MILLION = 100_000_000
-const DAY_MS = 86_400_000
 
 /** '1234567890' → '123-45-67890' (10자리가 아니면 원본을 그대로 돌려줍니다) */
 export function formatBizNo(value: string): string {
@@ -65,44 +64,58 @@ export function formatMoneyShort(won: number): string {
 }
 
 /**
- * 접수 마감일 → 'D-10' · 'D-day' · '마감' · '상시'
+ * 접수 마감일 → '~ 9. 16' · '상시 접수'
  *
- * endDate 가 null 이면 '상시' 다. 시작·마감이 둘 다 비면 '예산 소진 시까지' 라는
- * 뜻이라(supportProgram.ts 주석) 화면에는 '상시' 로 보여준다.
+ * endDate 가 null 이면 '상시 접수' 다. 시작·마감이 둘 다 비면 '예산 소진 시까지' 라는
+ * 뜻이라(supportProgram.ts 주석) 화면에는 상시로 보여준다.
+ *
+ * 'D-10' 을 주지 않는다. 남은 날짜는 달력을 열어 계산해야 하는데 '~ 9. 16' 은 바로
+ * 적을 수 있고, 무엇보다 관심 목록·대출·지원사업·상세가 같은 문구를 써야 한다 — 같은
+ * 공고가 화면을 옮길 때마다 다른 말로 읽히면 저장해둔 것과 같은 것인지 확인해야 한다.
  *
  * ⚠️ 접수 시작 전(startDate 가 미래)을 구분하지 않는다. '접수 예정' 표시가 필요한지
- *    기획 확인이 안 돼서 마감일 기준으로만 계산한다.
+ *    기획 확인이 안 돼서 마감일만 본다.
  */
-export function formatDeadline(endDate: string | null, now: Date = new Date()): string {
-  if (!endDate) return '상시'
+export function formatDeadlineDate(endDate: string | null): string {
+  if (!endDate) return '상시 접수'
 
-  // 마감일 당일 자정까지를 유효 기간으로 본다
-  const end = new Date(`${endDate}T23:59:59`)
-  if (Number.isNaN(end.getTime())) return '-'
+  const month = Number(endDate.slice(5, 7))
+  const day = Number(endDate.slice(8, 10))
+  if (Number.isNaN(month) || Number.isNaN(day)) return '-'
 
-  const diffMs = end.getTime() - now.getTime()
-  if (diffMs < 0) return '마감'
+  return `~ ${month}. ${day}`
+}
 
-  const days = Math.floor(diffMs / DAY_MS)
-  return days === 0 ? 'D-day' : `D-${days}`
+export interface MoneyParts {
+  /** '5,000' · '1억 2,000' */
+  value: string
+  /** '만 원' · '억 원' */
+  unit: string
 }
 
 /**
- * 마감이 임박했는지. 화면에서 빨간색으로 강조할지 판단한다.
- * 이미 마감된 것과 상시 접수는 임박이 아니다
+ * 금액을 숫자와 단위로 쪼갠다. 큰 숫자 + 작은 회색 단위로 그리는 자리에 쓴다.
+ *
+ * formatMoneyShort 는 '5,000만 원' 한 문자열을 주는데, 요약 타일·카드처럼 단위만
+ * 작게 깔아야 하는 화면에서는 쪼개진 값이 필요하다.
+ *
+ * 만 원 단위에서 반올림한다. 대출 한도(formatMoneyShort)는 실제보다 크게 보이면
+ * 안 되어 버리지만, 이쪽은 추정·집계 금액이라 반올림이 원값에 가깝다.
+ *
+ * null 을 받는다. 상권 분석의 매출은 원본에서 비어 있는 행이 53% 라 기본 경로에
+ * 가깝다. 그 경우 '-' 를 주고 단위를 비운다 — '- 만 원' 이 되면 값이 있는 것처럼 보인다.
  */
-export function isDeadlineNear(
-  endDate: string | null,
-  withinDays = 7,
-  now: Date = new Date(),
-): boolean {
-  if (!endDate) return false
+export function splitMoneyShort(won: number | null): MoneyParts {
+  if (won === null || !Number.isFinite(won) || won < 0) return { value: '-', unit: '' }
 
-  const end = new Date(`${endDate}T23:59:59`)
-  if (Number.isNaN(end.getTime())) return false
+  const man = Math.round(won / TEN_THOUSAND)
+  if (man < TEN_THOUSAND) return { value: man.toLocaleString('ko-KR'), unit: '만 원' }
 
-  const diffMs = end.getTime() - now.getTime()
-  if (diffMs < 0) return false
-
-  return diffMs <= withinDays * DAY_MS
+  const eok = Math.floor(man / TEN_THOUSAND)
+  const rest = man % TEN_THOUSAND
+  if (rest === 0) return { value: eok.toLocaleString('ko-KR'), unit: '억 원' }
+  return {
+    value: `${eok.toLocaleString('ko-KR')}억 ${rest.toLocaleString('ko-KR')}`,
+    unit: '만 원',
+  }
 }

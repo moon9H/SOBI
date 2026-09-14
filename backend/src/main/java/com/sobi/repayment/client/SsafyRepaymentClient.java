@@ -31,7 +31,7 @@ public class SsafyRepaymentClient {
                         .build();
 
         return financeClient.post(
-                "/실제-SSAFY-대출상품-가입목록-조회-URL",
+                "/edu/loan/inquireLoanAccountList",
                 request,
                 SsafyInquireLoanAccountListResponse.class
         );
@@ -55,7 +55,7 @@ public class SsafyRepaymentClient {
                         .build();
 
         return financeClient.post(
-                "/실제-SSAFY-상환내역-조회-URL",
+                "/edu/loan/inquireRepaymentRecords",
                 request,
                 SsafyInquireRepaymentRecordsResponse.class
         );
@@ -80,7 +80,7 @@ public class SsafyRepaymentClient {
                         .build();
 
         return financeClient.post(
-                "/실제-SSAFY-일시납-상환-URL",
+                "/edu/loan/updateRepaymentLoanBalanceInFull",
                 request,
                 SsafyUpdateRepaymentLoanBalanceInFullResponse.class
         );

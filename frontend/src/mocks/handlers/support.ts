@@ -1,12 +1,14 @@
-import { http, HttpResponse } from 'msw'
+import { http } from 'msw'
 
+import type { ApplicationProduct } from '@/features/application/model/types'
 import type {
   SupportProgramDetail,
   SupportProgramListData,
   SupportProgramListItem,
 } from '@/features/support-program/model/types'
+import { fail, ok } from '@/mocks/lib/envelope'
 import type { ProductStatus } from '@/shared/constants/productStatus'
-import type { ApiResponse, SupportProgramType } from '@/shared/types'
+import type { SupportProgramType } from '@/shared/types'
 
 const INSTITUTIONS = [
   '중소벤처기업진흥공단',
@@ -65,6 +67,31 @@ function makeProgram(index: number): SupportProgramListItem {
 const mockPrograms: SupportProgramListItem[] = Array.from({ length: 26 }, (_, i) => makeProgram(i))
 
 /**
+ * 신청 화면 상단에 쓸 상품 요약. 신청 목(handlers/application.ts)이 가져간다.
+ *
+ * 두 목이 따로 데이터를 들면 목록에서 고른 공고와 신청 화면의 상품이 어긋난다.
+ *
+ * type 별로 값이 있고 없다.
+ *   SUPPORT  무상 지원금 — 금리 0, 금액 범위 있음
+ *   LOAN     융자 — 금리와 금액 범위 둘 다 있음
+ *   ETC      그 외 — 금리도 금액도 없음
+ */
+export function findSupportProductSummary(supportProgramId: number): ApplicationProduct | null {
+  const found = mockPrograms.find((program) => program.supportProgramId === supportProgramId)
+  if (!found) return null
+
+  return {
+    name: found.pblancNm,
+    organization: found.jrsdInsttNm,
+    // 지원금은 0(무상), 금리 개념이 없는 공고는 null 이다
+    interestRate: found.type === 'LOAN' ? found.interestRate : found.type === 'SUPPORT' ? 0 : null,
+    minAmount: found.type === 'ETC' ? null : found.minBalance,
+    maxAmount: found.type === 'ETC' ? null : found.maxBalance,
+    deadline: found.endDate,
+  }
+}
+
+/**
  * 지원사업 (support) 목 핸들러.
  *
  * 실제 응답 형태(봉투 + page 객체)를 그대로 흉내낸다. 서버로 바꿀 때 화면과 훅을 안 고친다.
@@ -109,12 +136,8 @@ export const supportHandlers = [
     const totalElements = filtered.length
     const totalPages = Math.ceil(totalElements / size)
 
-    const body: ApiResponse<SupportProgramListData> = {
-      statusCode: 200,
-      timestamp: new Date().toISOString(),
-      path: '/api/v1/support',
-      message: '지원사업 목록 조회 성공',
-      data: {
+    return ok<SupportProgramListData>(
+      {
         programs: filtered.slice(page * size, page * size + size),
         page: {
           number: page,
@@ -125,10 +148,9 @@ export const supportHandlers = [
           last: page >= totalPages - 1,
         },
       },
-      error: null,
-    }
-
-    return HttpResponse.json(body)
+      '지원사업 목록 조회 성공',
+      { path: '/api/v1/support' },
+    )
   }),
 
   // POST /api/v1/support/search
@@ -138,10 +160,7 @@ export const supportHandlers = [
     const size = Number(url.searchParams.get('size') ?? 20)
     const { query } = (await request.json()) as { query?: string }
 
-    /*
-     * 실제로는 RAG 기반 유사도 검색이다. 목에서는 흉내낼 수 없어 공고명·기관명 부분
-     * 일치로 대신한다. 화면 확인용이고, 서버가 붙으면 결과 순서와 개수가 달라진다.
-     */
+    // 실제는 RAG 유사도 검색. 목은 공고명·기관명 부분일치로 대신한다
     const keyword = (query ?? '').trim()
     const filtered = keyword
       ? mockPrograms.filter(
@@ -152,12 +171,8 @@ export const supportHandlers = [
     const totalElements = filtered.length
     const totalPages = Math.ceil(totalElements / size)
 
-    const body: ApiResponse<SupportProgramListData> = {
-      statusCode: 200,
-      timestamp: new Date().toISOString(),
-      path: '/api/v1/support/search',
-      message: '지원사업 자연어 검색 성공',
-      data: {
+    return ok<SupportProgramListData>(
+      {
         programs: filtered.slice(page * size, page * size + size),
         page: {
           number: page,
@@ -168,10 +183,9 @@ export const supportHandlers = [
           last: page >= totalPages - 1,
         },
       },
-      error: null,
-    }
-
-    return HttpResponse.json(body)
+      '지원사업 자연어 검색 성공',
+      { path: '/api/v1/support/search' },
+    )
   }),
 
   // GET /api/v1/support/:supportProgramId
@@ -180,7 +194,8 @@ export const supportHandlers = [
     const found = mockPrograms.find((program) => program.supportProgramId === id)
 
     if (!found) {
-      return HttpResponse.json({ message: '공고를 찾을 수 없습니다' }, { status: 404 })
+      // 지원사업 도메인은 백엔드 미구현이라 전용 에러 코드가 없다. 확정되면 교체
+      return fail(404, 'COMMON_001', '공고를 찾을 수 없습니다.', `/api/v1/support/${id}`)
     }
 
     // 목록에 없는 필드(개요·신청방법·문의처)는 여기서 만든다
@@ -216,15 +231,6 @@ export const supportHandlers = [
               maxBalance: found.maxBalance,
             }
 
-    const body: ApiResponse<SupportProgramDetail> = {
-      statusCode: 200,
-      timestamp: new Date().toISOString(),
-      path: `/api/v1/support/${id}`,
-      message: '지원사업 상세 정보 조회 성공',
-      data: detail,
-      error: null,
-    }
-
-    return HttpResponse.json(body)
+    return ok(detail, '지원사업 상세 정보 조회 성공', { path: `/api/v1/support/${id}` })
   }),
 ]

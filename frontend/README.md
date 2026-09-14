@@ -6,13 +6,80 @@ React 19 + TypeScript + Vite
 
 ```bash
 npm install
-npm run dev        # localhost:5173
+npm run dev        # localhost:5173 — 실서버(localhost:8080)로 붙는다
+npm run dev:mock   # MSW 목으로 붙는다 (백엔드 없이 화면만 볼 때)
 npm run build      # 배포 빌드 (커밋 전 필수 확인)
 npm run preview    # 빌드 결과 로컬 확인
 npm run lint       # ESLint 검사
 npm run lint:fix   # ESLint 자동 수정
 npm run format     # Prettier 포맷
 ```
+
+> 타입 검사는 `npx tsc --noEmit` 이 아니라 **`npx tsc -b`** 로 한다.
+> 루트 `tsconfig.json` 이 `"files": []` + references 구조라 `--noEmit` 은 아무 파일도 검사하지 않는다.
+
+## 목(MSW)
+
+`VITE_USE_MOCK=true` 일 때만 켜진다. `npm run dev` 는 꺼짐(`.env.development`),
+`npm run dev:mock` 은 켜짐(`.env.mock`)이다.
+
+**목은 백엔드에 아직 없는 엔드포인트만 받는다.** 목이 켜져 있어도 요청은 실서버로
+먼저 나가고, 서버가 응답하면 그 응답을 쓴다. 아직 없는 엔드포인트일 때만 목이 받는다.
+그래서 백엔드가 API 를 올리면 **설정을 안 고쳐도 자동으로 목에서 빠진다.**
+
+콘솔에 엔드포인트별로 어느 쪽이 응답했는지 찍힌다.
+
+```
+[MSW] POST /api/v1/auth/login — 실서버 응답 사용
+[MSW] GET /api/v1/user/me — 백엔드 미구현, 목으로 응답합니다
+```
+
+미구현 판정은 **404·405 중 공통 봉투가 없는 응답**과 연결 실패다. 스프링에 매핑이 없어
+나는 404 와 업무 로직이 내는 404(`BUSINESS_O04` 등)를 본문으로 가른다. 업무 404 는
+실서버 응답을 그대로 쓴다.
+
+손으로 개입해야 하는 경우는 둘뿐이다.
+
+```bash
+# .env.mock
+VITE_MOCK_DOMAINS=loan,support   # 목을 아예 등록하지 않을 때. 비우면 전부 등록
+VITE_MOCK_FORCE=dashboard        # 서버는 있는데 응답 모양이 아직 안 맞을 때
+```
+
+고를 수 있는 값은 `src/mocks/handlers/index.ts` 의 `HANDLERS_BY_DOMAIN` 키다 —
+`account` `application` `auth` `business` `funding` `loan` `market` `notification`
+`repayment` `support`.
+
+## 구글 로그인
+
+`VITE_GOOGLE_CLIENT_ID` 가 비어 있으면 구글 버튼이 비활성화된다.
+클라이언트 ID 는 공개값이라 커밋해도 된다 — 비밀은 `clientSecret` 이고 서버만 가진다.
+
+```bash
+VITE_GOOGLE_CLIENT_ID=...apps.googleusercontent.com
+VITE_GOOGLE_REDIRECT_URI=http://localhost:5173/oauth/google
+```
+
+⚠️ **리디렉션 URI 는 세 곳이 글자 하나까지 같아야 한다** — 구글 콘솔의 '승인된 리디렉션 URI',
+프론트의 이 값, 서버가 code 를 교환할 때 쓰는 값. 하나만 달라도 구글이
+`redirect_uri_mismatch` 로 막는다. 배포 도메인을 쓰려면 콘솔에도 그 주소를 추가해야 한다.
+
+로그인과 계정 연결이 **같은 콜백 주소**를 쓴다. 무엇을 하러 갔는지는 출발할 때
+sessionStorage 에 기록해 두고(`oauth:intent`) 돌아와서 읽는다.
+
+```
+로그인    버튼 → 구글 동의 → /oauth/google → POST /auth/oauth/google
+계정 연결  마이페이지 버튼 → 구글 동의 → /oauth/google → POST /auth/social/google
+```
+
+> 명세 예시에는 `/oauth/callback` 으로 적혀 있지만 **구글 콘솔에 등록된 값은 `/oauth/google`** 이다.
+> 백엔드는 우리가 보낸 `redirectUri` 를 그대로 구글에 넘기므로 서버 수정은 필요 없다.
+
+그래서 콜백 라우트는 ProtectedRoute·PublicOnlyRoute **어느 가드에도 넣지 않는다.**
+로그인은 비로그인 상태로, 계정 연결은 로그인 상태로 같은 주소에 돌아오기 때문이다.
+
+`state` 는 OAuth CSRF 를 막는 일회용 표식으로, sessionStorage 에 저장했다가 돌아온 값과
+비교하고 버린다.
 
 ## 주요 라이브러리
 

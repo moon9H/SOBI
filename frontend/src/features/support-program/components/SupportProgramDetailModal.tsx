@@ -1,15 +1,21 @@
 import type { ReactNode } from 'react'
+import { useState } from 'react'
+import { useNavigate } from 'react-router'
 
+import { useCreateApplication } from '@/features/application/hooks/useApplication'
+import { APPLICATION_SOURCE } from '@/features/application/model/types'
 import { useSupportProgramDetail } from '@/features/support-program/hooks/useSupportProgramDetail'
 import { SUPPORT_PROGRAM_TYPE_LABEL } from '@/features/support-program/model/types'
 import type { ProductStatus } from '@/shared/constants/productStatus'
 import { SUPPORT_STATUS_LABEL } from '@/shared/constants/productStatus'
+import { routeTo } from '@/shared/constants/routes'
+import { useUiStore } from '@/shared/lib/store/useUiStore'
+import BookmarkButton from '@/shared/ui/BookmarkButton'
 import Button from '@/shared/ui/Button'
 import Modal from '@/shared/ui/Modal'
 import ProductStatusBadge from '@/shared/ui/ProductStatusBadge'
 import Skeleton from '@/shared/ui/Skeleton'
-import { cn } from '@/shared/utils/cn'
-import { formatDeadline, formatMoneyShort, isDeadlineNear } from '@/shared/utils/formatters'
+import { formatMoneyShort } from '@/shared/utils/formatters'
 
 /**
  * 상태별 하단 버튼 문구와 갈 곳.
@@ -21,8 +27,12 @@ import { formatDeadline, formatMoneyShort, isDeadlineNear } from '@/shared/utils
  *   APPROVED    지급 내역 보기       → 202 (대출은 '보유중' 이라 문구가 다르다)
  *   IMPOSSIBLE  신청 자격이 안 돼요  → 갈 곳이 없다
  *
- * ⚠️ 194·202 화면이 아직 없어서 버튼이 눌리지 않는다. 라우트가 생기면 onClick 을 넣고
- *    disabled 를 지우면 된다. IMPOSSIBLE 은 그 뒤에도 계속 비활성이다.
+ * POSSIBLE·WRITING 은 연결됐다. 둘 다 신청 생성을 부르면 되는데, 서버가 준비중인
+ * 건이 있으면 새로 만들지 않고 그걸 돌려주기 때문이다.
+ *
+ * ⚠️ SUBMITTED 이상은 아직 비활성이다. 그 공고의 신청 건으로 가야 하는데 상세 응답에
+ *    applicationId 가 없어 어느 건인지 알 수 없다. 백엔드에 요청해 둔 상태다.
+ *    IMPOSSIBLE 은 그 뒤에도 계속 비활성이다.
  */
 const FOOTER_LABEL: Record<ProductStatus, string> = {
   POSSIBLE: '신청하기',
@@ -59,6 +69,32 @@ export default function SupportProgramDetailModal({
   onClose,
 }: SupportProgramDetailModalProps) {
   const { data, isLoading, isError } = useSupportProgramDetail(supportProgramId)
+  const navigate = useNavigate()
+  const showToast = useUiStore((state) => state.showToast)
+
+  /*
+   * ⚠️ features 끼리 부르는 건 원래 피해야 한다. 대출 상세 모달과 같은 예외다 —
+   *    모달을 여는 곳이 여럿이라 프롭으로 내리면 같은 import 가 그만큼 늘어난다.
+   *    조합을 pages 층으로 올리는 게 정석인데 별도 티켓으로 뻐다.
+   */
+  const createApplication = useCreateApplication()
+
+  const canApply = data?.status === 'POSSIBLE' || data?.status === 'WRITING'
+
+  const handleApply = () => {
+    createApplication.mutate(
+      { type: APPLICATION_SOURCE.SUPPORT_PROGRAM, programId: supportProgramId },
+      {
+        onSuccess: (application) =>
+          navigate(routeTo.supportProgramApply(application.applicationId)),
+        onError: () => showToast('신청을 시작하지 못했어요. 잠시 후 다시 시도해 주세요.', 'danger'),
+      },
+    )
+  }
+
+  // ⚠️ 대출 상세와 같다. `/bookmark` 가 붙으면 useMutation 으로 바꾼다
+  const [override, setOverride] = useState<boolean | null>(null)
+  const bookmarked = override ?? data?.isBookmark ?? false
 
   return (
     <Modal
@@ -69,32 +105,25 @@ export default function SupportProgramDetailModal({
       title={data?.pblancNm ?? '지원사업'}
       description={data?.bsnsSumryCn ?? undefined}
       headerRight={
+        data && <ProductStatusBadge status={data.status} labels={SUPPORT_STATUS_LABEL} />
+      }
+      headerAction={
         data && (
-          <>
-            <ProductStatusBadge status={data.status} labels={SUPPORT_STATUS_LABEL} />
-            <span
-              aria-label={data.isBookmark ? '저장됨' : '저장하지 않음'}
-              className={data.isBookmark ? 'text-primary' : 'text-text-disabled'}
-            >
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                className="size-5"
-                fill={data.isBookmark ? 'currentColor' : 'none'}
-                stroke="currentColor"
-                strokeWidth="1.75"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M6 3h12v18l-6-4-6 4z" />
-              </svg>
-            </span>
-          </>
+          <BookmarkButton
+            bookmarked={bookmarked}
+            onToggle={() => setOverride(!bookmarked)}
+            label={data.pblancNm}
+          />
         )
       }
       footer={
         data && (
-          <Button className="w-full" disabled>
+          <Button
+            className="w-full"
+            disabled={!canApply}
+            loading={createApplication.isPending}
+            onClick={handleApply}
+          >
             {FOOTER_LABEL[data.status]}
           </Button>
         )
@@ -124,7 +153,7 @@ export default function SupportProgramDetailModal({
             <Row label="금액">
               최소 {formatMoneyShort(data.minBalance)} ~ 최대 {formatMoneyShort(data.maxBalance)}
               {data.type === 'LOAN' && (
-                <span className="text-text-muted ml-2">연 {data.interestRate}%</span>
+                <span className="text-text-muted ml-2">연 {data.interestRate.toFixed(1)}%</span>
               )}
             </Row>
           )}
@@ -132,12 +161,12 @@ export default function SupportProgramDetailModal({
           {data.reqstMthPapersCn && <Row label="신청방법">{data.reqstMthPapersCn}</Row>}
           {data.refrncNm && <Row label="문의처">{data.refrncNm}</Row>}
 
-          <Row label="접수">
-            <span className={cn(isDeadlineNear(data.endDate) && 'text-danger font-semibold')}>
-              {data.endDate ? `~ ${data.endDate} · ` : ''}
-              {formatDeadline(data.endDate)}
-            </span>
-          </Row>
+          {/*
+            'D-5' 와 임박 빨강을 넣지 않는다. 목록·관심 목록이 마감일을 날짜로만 보여주는데
+            상세에서만 남은 날짜로 바뀌면 같은 공고가 화면을 옮길 때마다 다른 말로 읽힌다.
+            연도는 남긴다 — 목록과 달리 여기는 내년 공고인지 확인하는 자리다.
+          */}
+          <Row label="접수">{data.endDate ? `~ ${data.endDate}` : '상시 접수'}</Row>
         </dl>
       )}
     </Modal>

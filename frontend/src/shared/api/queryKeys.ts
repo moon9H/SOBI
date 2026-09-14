@@ -36,6 +36,31 @@ export const queryKeys = {
   market: {
     all: ['market'] as const,
     analysis: (params: object) => ['market', 'analysis', params] as const,
+    /** 업종·지역 목록. 정적 데이터라 파라미터가 없다 */
+    businesses: ['market', 'businesses'] as const,
+    regions: ['market', 'regions'] as const,
+  },
+
+  /**
+   * 자금 조합. 목표 금액을 채우는 상품 조합을 서버가 추천한다.
+   * 조회인데 POST 인 건 요청 body 로 조건을 받기 때문이다.
+   */
+  funding: {
+    all: ['funding'] as const,
+    /** 목표 금액이 바뀌면 다른 추천이라 키에 넣는다 */
+    recommend: (targetAmount: number) => ['funding', 'recommend', targetAmount] as const,
+  },
+
+  // 신청 (대출/지원사업)
+  account: {
+    all: ['account'] as const,
+    list: ['account', 'list'] as const,
+  },
+
+  application: {
+    all: ['application'] as const,
+    /** 신청 건마다 캐시가 갈린다. 검증 상태 폴링도 이 키로 무효화한다 */
+    detail: (applicationId: number) => ['application', 'detail', applicationId] as const,
   },
 
   repayment: {
