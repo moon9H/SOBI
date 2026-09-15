@@ -1,3 +1,4 @@
+import { LOAN_SORT } from '@/features/loan/model/types'
 import { LOAN_STATUS_LABEL, PRODUCT_STATUS } from '@/shared/constants/productStatus'
 import FilterChip from '@/shared/ui/FilterChip'
 import Select from '@/shared/ui/Select'
@@ -14,15 +15,19 @@ const BANK_OPTIONS = [
   { value: '대구은행', label: '대구은행' },
 ]
 
-/** ⚠️ sort 값 형식이 명세에 없어 Spring 형식으로 가정했습니다 */
+/**
+ * 정렬 기준.
+ *
+ * 서버 enum(LoanSortType)을 그대로 쓴다. 방향이 값에 박혀 있어(금리는 낮은 순,
+ * 한도는 높은 순) '금리 높은 순' 같은 선택지가 아예 없다.
+ */
 const SORT_OPTIONS = [
-  { value: 'interestRate,asc', label: '금리 낮은 순' },
-  { value: 'interestRate,desc', label: '금리 높은 순' },
-  { value: 'maxLoanBalance,desc', label: '한도 높은 순' },
+  { value: LOAN_SORT.INTEREST_RATE, label: '금리 낮은 순' },
+  { value: LOAN_SORT.MAX_BALANCE, label: '한도 높은 순' },
 ]
 
-/** judgement 는 status 6종 중 하나를 보낸다. 라벨은 대출 기준(APPROVED = 보유중) */
-const JUDGEMENT_OPTIONS = [
+/** 판정 결과. 라벨은 대출 기준(PAID = 실행 완료) */
+const STATUS_OPTIONS = [
   { value: '', label: '판정 전체' },
   ...Object.values(PRODUCT_STATUS).map((status) => ({
     value: status,
@@ -30,12 +35,12 @@ const JUDGEMENT_OPTIONS = [
   })),
 ]
 
-type FilterKey = 'bankName' | 'judgement' | 'isBookmark' | 'sort'
+type FilterKey = 'bankName' | 'status' | 'bookmarked' | 'sort'
 
 interface LoanFilterBarProps {
   bankName: string
-  judgement: string
-  isBookmark: boolean
+  status: string
+  bookmarked: boolean
   sort: string
   /** useListParams 의 setValues 를 그대로 넘긴다. page 리셋까지 그쪽이 처리한다 */
   onChange: (patch: Partial<Record<FilterKey, string | null>>) => void
@@ -43,8 +48,8 @@ interface LoanFilterBarProps {
 
 export default function LoanFilterBar({
   bankName,
-  judgement,
-  isBookmark,
+  status,
+  bookmarked,
   sort,
   onChange,
 }: LoanFilterBarProps) {
@@ -61,16 +66,16 @@ export default function LoanFilterBar({
 
       <Select
         size="sm"
-        options={JUDGEMENT_OPTIONS}
-        value={judgement}
-        onChange={(event) => onChange({ judgement: event.target.value || null })}
+        options={STATUS_OPTIONS}
+        value={status}
+        onChange={(event) => onChange({ status: event.target.value || null })}
         className="w-[124px]"
         aria-label="판정 결과"
       />
       <FilterChip
         label="관심 상품만"
-        selected={isBookmark}
-        onToggle={() => onChange({ isBookmark: isBookmark ? null : 'true' })}
+        selected={bookmarked}
+        onToggle={() => onChange({ bookmarked: bookmarked ? null : 'true' })}
       />
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
@@ -78,7 +83,7 @@ export default function LoanFilterBar({
         <Select
           size="sm"
           options={SORT_OPTIONS}
-          value={sort || 'interestRate,asc'}
+          value={sort || LOAN_SORT.INTEREST_RATE}
           onChange={(event) => onChange({ sort: event.target.value })}
           className="w-[132px]"
           aria-label="정렬 기준"

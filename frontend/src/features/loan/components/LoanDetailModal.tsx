@@ -5,9 +5,10 @@ import { useNavigate } from 'react-router'
 import { useCreateApplication } from '@/features/application/hooks/useApplication'
 import { APPLICATION_SOURCE } from '@/features/application/model/types'
 import { useLoanDetail } from '@/features/loan/hooks/useLoanDetail'
+import { describeConditions } from '@/features/loan/model/conditions'
 import type { ProductStatus } from '@/shared/constants/productStatus'
 import { LOAN_STATUS_LABEL } from '@/shared/constants/productStatus'
-import { routeTo } from '@/shared/constants/routes'
+import { ROUTES, routeTo } from '@/shared/constants/routes'
 import { useUiStore } from '@/shared/lib/store/useUiStore'
 import BookmarkButton from '@/shared/ui/BookmarkButton'
 import Button from '@/shared/ui/Button'
@@ -19,29 +20,33 @@ import { formatMoneyShort } from '@/shared/utils/formatters'
 /**
  * 상태별 하단 버튼 문구와 갈 곳.
  *
- *   POSSIBLE    신청하기            → 189 대출 신청·서류 제출
- *   WRITING     이어서 작성하기      → 189 (작성 중인 신청을 이어서)
+ *   ELIGIBLE    신청하기            → 189 대출 신청·서류 제출
+ *   PREPARING   이어서 작성하기      → 189 (작성 중인 신청을 이어서)
  *   SUBMITTED   신청 내역 보기       → 202 신청 현황
- *   REVIEW      신청 내역 보기       → 202
+ *   REVIEWING   신청 내역 보기       → 202
  *   APPROVED    신청 내역 보기       → 202
- *   IMPOSSIBLE  신청 자격이 안 돼요  → 갈 곳이 없다
+ *   PAID        신청 내역 보기       → 202 (다시 신청할 수 없다)
+ *   INELIGIBLE  신청 자격이 안 돼요  → 갈 곳이 없다
  *
  * 신청 완료 시점부터는 신청·서류 제출 화면에 다시 들어갈 수 없다.
  *
- * POSSIBLE·WRITING 은 연결됐다. 둘 다 신청 생성을 부르면 되는데, 서버가 준비중인
+ * ELIGIBLE·PREPARING 은 연결됐다. 둘 다 신청 생성을 부르면 되는데, 서버가 준비중인
  * 건이 있으면 새로 만들지 않고 그걸 돌려주기 때문이다.
  *
- * ⚠️ SUBMITTED 이상은 아직 비활성이다. 그 상품의 신청 건으로 가야 하는데
- *    상세 응답에 applicationId 가 없어 어느 건인지 알 수 없다. 백엔드에 요청해 둔 상태다.
- *    IMPOSSIBLE 은 그 뒤에도 계속 비활성이다.
+ * SUBMITTED 이상은 applicationId 로 신청 현황에 보낸다. 그 값이 상태가 신청에서 온
+ * 경우에만 오므로, 상태를 다시 나열하지 않고 값이 있는지로 가른다 — 상태가 하나 더
+ * 생겨도 여기를 고칠 일이 없다.
+ *
+ * INELIGIBLE 만 계속 비활성이다. 갈 곳이 없다.
  */
 const FOOTER_LABEL: Record<ProductStatus, string> = {
-  POSSIBLE: '신청하기',
-  WRITING: '이어서 작성하기',
+  ELIGIBLE: '신청하기',
+  PREPARING: '이어서 작성하기',
   SUBMITTED: '신청 내역 보기',
-  REVIEW: '신청 내역 보기',
+  REVIEWING: '신청 내역 보기',
   APPROVED: '신청 내역 보기',
-  IMPOSSIBLE: '신청 자격이 안 돼요',
+  PAID: '신청 내역 보기',
+  INELIGIBLE: '신청 자격이 안 돼요',
 }
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
@@ -79,7 +84,12 @@ export default function LoanDetailModal({ loanId, onClose }: LoanDetailModalProp
    */
   const createApplication = useCreateApplication()
 
-  const canApply = data?.status === 'POSSIBLE' || data?.status === 'WRITING'
+  const canApply = data?.status === 'ELIGIBLE' || data?.status === 'PREPARING'
+  /*
+   * 제출 이후 상태는 그 상품의 신청 건으로 보낸다. applicationId 는 상태가 신청에서
+   * 온 경우에만 오므로 값 유무로 가른다.
+   */
+  const trackedApplicationId = canApply ? null : (data?.applicationId ?? null)
 
   const handleApply = () => {
     createApplication.mutate(
@@ -102,7 +112,15 @@ export default function LoanDetailModal({ loanId, onClose }: LoanDetailModalProp
    * react-hooks/set-state-in-effect 에 걸리고 렌더가 한 번 더 돈다.
    */
   const [override, setOverride] = useState<boolean | null>(null)
-  const bookmarked = override ?? data?.isBookmark ?? false
+  const bookmarked = override ?? data?.bookmarked ?? false
+
+  const handleFooterClick = () => {
+    if (trackedApplicationId !== null) {
+      navigate(ROUTES.APPLICATIONS)
+      return
+    }
+    handleApply()
+  }
 
   return (
     <Modal
@@ -127,9 +145,9 @@ export default function LoanDetailModal({ loanId, onClose }: LoanDetailModalProp
         data && (
           <Button
             className="w-full"
-            disabled={!canApply}
+            disabled={!canApply && trackedApplicationId === null}
             loading={createApplication.isPending}
-            onClick={handleApply}
+            onClick={handleFooterClick}
           >
             {FOOTER_LABEL[data.status]}
           </Button>
@@ -157,12 +175,36 @@ export default function LoanDetailModal({ loanId, onClose }: LoanDetailModalProp
             최소 {formatMoneyShort(data.minLoanBalance)} ~ 최대{' '}
             {formatMoneyShort(data.maxLoanBalance)}
           </Row>
-          {/* 시안에는 거치기간·상환방식·만기가 있었지만 응답에 period(개월)만 온다 */}
-          <Row label="상환">총 {data.period}개월</Row>
-          <Row label="업력">{data.firmAge}개월 이상</Row>
-          <Row label="대상">{data.target}</Row>
-          <Row label="신용등급">{data.rating}등급 이상</Row>
+          <Row label="기관">{data.bankName}</Row>
+          {/* 기간이 '일' 이다. 매일 한 회차씩 갚아서 365일이면 365회다 */}
+          <Row label="상환">
+            {data.period}일 · {data.repaymentMethod}
+          </Row>
+          <Row label="업력">{data.conditions.firmAge}년 이상</Row>
+          <Row label="조건">{describeConditions(data.conditions)}</Row>
+          <Row label="신용등급">{data.conditions.ratingName}등급 이상</Row>
           <Row label="실행">승인 시 출금 계좌로 입금 (신청 시 입력)</Row>
+
+          {/*
+            불가 사유는 조건 줄 아래가 아니라 목록 끝에 둔다. 조건은 상품의 성질이고
+            사유는 나와 상품 사이의 문제라, 섞어 두면 어느 쪽이 상품 설명인지 흐려진다.
+
+            INELIGIBLE 이 아니어도 보여준다. 서버가 상태와 무관하게 내려주는데, 서류를
+            준비하는 동안 신용등급이 떨어지는 경우가 있어서다. 다 준비해서 제출한 뒤
+            반려되는 것보다 지금 아는 편이 낫다.
+          */}
+          {data.ineligibleReasons.length > 0 && (
+            <div className="bg-danger-soft mt-3 rounded-sm px-3.5 py-3">
+              <p className="text-body2 text-danger font-semibold">지금은 신청할 수 없어요</p>
+              <ul className="text-body2 text-text-secondary mt-1.5 flex flex-col gap-1">
+                {data.ineligibleReasons.map((reason) => (
+                  <li key={reason} className="break-keep">
+                    {reason}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </dl>
       )}
     </Modal>

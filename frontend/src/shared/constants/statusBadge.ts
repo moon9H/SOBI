@@ -17,8 +17,9 @@ import type { BadgeVariant } from '@/shared/ui/Badge'
 export const APPLICATION_STATUS_VARIANT: Record<ApplicationStatus, BadgeVariant> = {
   PREPARING: 'outline', // 서류를 채우는 중. 아직 제출 안 함
   SUBMITTED: 'neutral', // 접수됨. 할 일 없음
-  REVIEW: 'progress', // 기관이 심사 중
+  REVIEWING: 'progress', // 기관이 심사 중
   APPROVED: 'success',
+  PAID: 'success', // 돈이 오갔다. 승인과 같은 끈난 상태라 같은 색이다
   REJECTED: 'danger',
 }
 
@@ -43,11 +44,16 @@ export const INSURANCE_STATUS_VARIANT: Record<InsuranceStatus, BadgeVariant> = {
   EXEMPT: 'outline', // 업종은 해당되나 이 업체는 대상이 아니다
 }
 
+/**
+ * 대출·지원사업이 같은 값 집합을 쓴다. 색은 도메인이 아니라 "지금 누가 무엇을 해야
+ * 하는가" 로 정해져서, 문구와 달리 갈릴 이유가 없다.
+ */
 export const PRODUCT_STATUS_VARIANT: Record<ProductStatus, BadgeVariant> = {
-  POSSIBLE: 'success',
-  IMPOSSIBLE: 'outline', // 오류가 아니라 자격 미달이라 danger 가 아니다
-  WRITING: 'warning', // 사용자가 이어서 작성해야 한다
+  ELIGIBLE: 'success',
+  INELIGIBLE: 'outline', // 오류가 아니라 자격 미달이라 danger 가 아니다
+  PREPARING: 'warning', // 사용자가 이어서 작성해야 한다
   SUBMITTED: 'neutral',
-  REVIEW: 'progress',
+  REVIEWING: 'progress',
   APPROVED: 'success',
+  PAID: 'success', // 돈이 오갔다. 승인과 같이 끝난 상태다
 }
