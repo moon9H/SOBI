@@ -44,6 +44,9 @@ public enum ErrorCode {
     BUSINESS_CODE_NOT_FOUND(HttpStatus.NOT_FOUND,"BUSINESS_003", "업종 코드가 존재하지 않습니다."),
     BUSINESS_INFO_NOT_FOUND(HttpStatus.NOT_FOUND, "BUSINESS_004", "등록된 사업자 정보가 없습니다."),
 
+    // 지원사업
+    SUPPORT_PROGRAM_NOT_FOUND(HttpStatus.NOT_FOUND, "SUPPORT_001", "존재하지 않는 지원사업입니다."),
+
     // 상권 분석 관련
     // 파라미터 누락/형식 오류는 도메인 코드를 따로 두지 않고 COMMON_001 을 쓴다.
     DONG_NOT_FOUND(HttpStatus.NOT_FOUND, "MARKET_001", "존재하지 않는 행정동입니다."),
@@ -59,7 +62,7 @@ public enum ErrorCode {
     FINANCE_API_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "EXTERNAL_001", "금융망 API 호출에 실패했습니다."),
 
     // 외부 API - AI 서버
-    AI_API_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "EXTERNAL_002", "지원사업 추천 서버 호출에 실패했습니다."),
+    AI_API_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "EXTERNAL_002", "AI 서버 호출에 실패했습니다."),
 
     // funding 관련
     TARGET_AMOUNT_ERROR(HttpStatus.BAD_REQUEST, "FUNDING_001", "목표 금액은 0보다 커야합니다."),
@@ -82,7 +85,15 @@ public enum ErrorCode {
     APPLICATION_DOCUMENT_NOT_COMPLETED(HttpStatus.BAD_REQUEST, "APPLICATION_008", "모든 서류의 검증이 완료되어야 신청할 수 있습니다."),
     APPLICATION_AMOUNT_INVALID(HttpStatus.BAD_REQUEST, "APPLICATION_009", "신청 금액이 상품의 한도 범위를 벗어났습니다."),
     APPLICATION_ACCOUNT_INVALID(HttpStatus.BAD_REQUEST, "APPLICATION_010", "본인의 수시입출금 계좌를 선택해야 합니다."),
-    APPLICATION_NOT_ELIGIBLE(HttpStatus.BAD_REQUEST, "APPLICATION_011", "신청 조건을 충족하지 않습니다.");
+    APPLICATION_NOT_ELIGIBLE(HttpStatus.BAD_REQUEST, "APPLICATION_011", "신청 조건을 충족하지 않습니다."),
+
+    // application 서류 업로드
+    APPLICATION_DOCUMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "APPLICATION_012", "존재하지 않는 신청 서류입니다."),
+    APPLICATION_DOCUMENT_UPLOAD_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "APPLICATION_013", "작성 중인 신청의 서류만 올릴 수 있습니다."),
+    APPLICATION_DOCUMENT_VALIDATING(HttpStatus.CONFLICT, "APPLICATION_014", "서류를 검증하는 중입니다. 검증이 끝난 뒤 다시 올려주세요."),
+    APPLICATION_DOCUMENT_FILE_EMPTY(HttpStatus.BAD_REQUEST, "APPLICATION_015", "업로드할 파일이 없습니다."),
+    APPLICATION_DOCUMENT_FILE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "APPLICATION_016", "파일은 10MB 이하만 올릴 수 있습니다."),
+    APPLICATION_DOCUMENT_FILE_TYPE_INVALID(HttpStatus.BAD_REQUEST, "APPLICATION_017", "PDF, JPG, PNG 파일만 올릴 수 있습니다.");
 
 
     private final HttpStatus status;
