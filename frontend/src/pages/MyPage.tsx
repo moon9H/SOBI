@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 
 import { buildAuthorizeUrl, isGoogleOAuthConfigured } from '@/features/auth/model/googleOAuth'
+import { useMydataRefresh } from '@/features/mydata/hooks/useMydata'
 import LinkRow from '@/features/mypage/components/LinkRow'
 import PanelHead from '@/features/mypage/components/PanelHead'
 import PasswordChangeModal from '@/features/mypage/components/PasswordChangeModal'
@@ -90,8 +91,13 @@ export function MyPage() {
    * ⚠️ 새로고침하면 스토어가 비어 목 값(LOCAL)으로 되돌아간다. 로그인 응답에 가입
    *    경로가 없어서 복구할 방법이 없다 — `GET /user/me` 가 붙으면 해결된다 (BE-02).
    */
+  /** 소셜 연결 안내에 쓴다. 목 프로필이 아니라 로그인한 계정의 주소여야 한다 */
+  const sessionEmail = useAuthStore((s) => s.user?.email)
+
   const linkedProvider = useAuthStore((s) => s.provider)
   const provider = linkedProvider ?? profile.provider
+
+  const refresh = useMydataRefresh()
 
   const [passwordOpen, setPasswordOpen] = useState(false)
   const [withdrawOpen, setWithdrawOpen] = useState(false)
@@ -193,8 +199,21 @@ export function MyPage() {
                     <Badge variant={myData.linked ? 'success' : 'outline'}>
                       {myData.linked ? '연동 중' : '연동 전'}
                     </Badge>
-                    {/* TODO: POST /mydata/refresh — 비동기라 진행률 화면이 필요하다 */}
-                    <Button variant="outline" size="sm">
+                    {/* 서버 쿨다운이 남아 있으면 눌러도 429 라 미리 잠근다 */}
+                    {refresh.remaining && (
+                      <span className="text-text-muted text-[11.5px]">
+                        {refresh.remaining} 갱신 가능
+                      </span>
+                    )}
+
+                    {/* 응답까지 수십 초 걸린다. 화면을 옮기지 않고 버튼에서 기다린다 */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      loading={refresh.isPending}
+                      disabled={refresh.remaining !== null}
+                      onClick={refresh.refresh}
+                    >
                       지금 갱신
                     </Button>
                   </span>
@@ -254,7 +273,16 @@ export function MyPage() {
       <SocialLinkModal
         open={socialLinkOpen}
         onClose={() => setSocialLinkOpen(false)}
-        email={profile.email}
+        /*
+         * ⚠️ 목이 아니라 **세션의 실제 이메일**이어야 한다. 백엔드
+         *    `AuthServiceImpl.linkSocial` 이 계정 이메일과 구글 이메일이 같은지 보고
+         *    다르면 AUTH_016 을 던지는데, 여기서 목 값(owner@sogong.com)을 보여주면
+         *    사용자는 엉뚱한 주소로 맞추려다 계속 실패한다.
+         *
+         *    세션이 비어 있을 때만 목으로 떨어진다 — 이 화면은 보호 라우트 안이라
+         *    실제로는 거의 오지 않는다.
+         */
+        email={sessionEmail ?? profile.email}
         onConfirm={() => {
           window.location.assign(buildAuthorizeUrl('link'))
         }}

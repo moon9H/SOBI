@@ -1,11 +1,13 @@
 import { http } from 'msw'
 
-import type { ApplicationProduct } from '@/features/application/model/types'
+import type { ApplicationSupportSummary } from '@/features/application/model/types'
 import type {
   SupportProgramDetail,
   SupportProgramListData,
   SupportProgramListItem,
 } from '@/features/support-program/model/types'
+import { SUPPORT_PROGRAM_TYPE_LABEL } from '@/features/support-program/model/types'
+import { isBookmarked } from '@/mocks/lib/bookmarkStore'
 import { fail, ok } from '@/mocks/lib/envelope'
 import type { ProductStatus } from '@/shared/constants/productStatus'
 import type { SupportProgramType } from '@/shared/types'
@@ -66,28 +68,80 @@ function makeProgram(index: number): SupportProgramListItem {
 
 const mockPrograms: SupportProgramListItem[] = Array.from({ length: 26 }, (_, i) => makeProgram(i))
 
+/** 시드 값에 사용자가 누른 것을 덮어쓴다. 목록·상세·관심 목록이 같은 값을 보게 한다 */
+function withBookmark(program: SupportProgramListItem): SupportProgramListItem {
+  return {
+    ...program,
+    isBookmark: isBookmarked('SUPPORT', program.supportProgramId, program.isBookmark),
+  }
+}
+
+/** 대출 쪽 `findLoanBookmarkState` 와 같은 용도. 그쪽 주석 참고 */
+export function findSupportProgramBookmarkState(
+  supportProgramId: number,
+): { bookmarked: boolean } | null {
+  const found = mockPrograms.find((program) => program.supportProgramId === supportProgramId)
+  return found ? { bookmarked: withBookmark(found).isBookmark } : null
+}
+
+/**
+ * 관심 목록에 담긴 지원사업. 관심 목록 목(handlers/bookmark.ts)이 가져간다.
+ *
+ * 필드 이름이 `GET /support` 와 다르다 — 백엔드 `bookmark/dto/SupportProgramList` 는
+ * 이율을 `interestRate` 가 아니라 **`interestRateOfSP`** 로 보낸다. 그 어긋남까지
+ * 흉내 내야 프론트 변환 코드가 실제로 검증된다.
+ *
+ * `type` 이 빠져 있는 것도 실제와 같다. 그래서 관심 목록에서는 지원사업 태그를 못 붙인다.
+ *
+ * ⚠️ status 는 `"POSSIBLE"` · `"IMPOSSIBLE"` 이다. 대출 쪽과 같은 이유 — 그쪽 주석 참고.
+ */
+export function bookmarkedSupportProgramRows() {
+  return mockPrograms
+    .filter((program) => withBookmark(program).isBookmark)
+    .map((program) => ({
+      supportProgramId: program.supportProgramId,
+      pblancNm: program.pblancNm,
+      jrsdInsttNm: program.jrsdInsttNm,
+      // ETC 유형은 금액이 아예 없다. 공고에 안 적힌 건을 흉내 내는 자리이기도 하다
+      minBalance: 'minBalance' in program ? program.minBalance : null,
+      maxBalance: 'maxBalance' in program ? program.maxBalance : null,
+      endDate: program.endDate,
+      // 융자형(LOAN)에만 이율이 있다
+      interestRateOfSP: 'interestRate' in program ? program.interestRate : null,
+      status:
+        program.status === 'ELIGIBLE'
+          ? 'POSSIBLE'
+          : program.status === 'INELIGIBLE'
+            ? 'IMPOSSIBLE'
+            : program.status,
+    }))
+}
+
 /**
  * 신청 화면 상단에 쓸 상품 요약. 신청 목(handlers/application.ts)이 가져간다.
  *
  * 두 목이 따로 데이터를 들면 목록에서 고른 공고와 신청 화면의 상품이 어긋난다.
  *
  * type 별로 값이 있고 없다.
- *   SUPPORT  무상 지원금 — 금리 0, 금액 범위 있음
- *   LOAN     융자 — 금리와 금액 범위 둘 다 있음
- *   ETC      그 외 — 금리도 금액도 없음
+ *   SUPPORT  무상 지원금 — 금액 범위 있음
+ *   LOAN     융자 — 금액 범위 있음
+ *   ETC      그 외 — 돈이 오가지 않아 금액이 없다. 그래서 신청 화면이 금액·계좌를 숨긴다
  */
-export function findSupportProductSummary(supportProgramId: number): ApplicationProduct | null {
+export function findSupportProductSummary(
+  supportProgramId: number,
+): ApplicationSupportSummary | null {
   const found = mockPrograms.find((program) => program.supportProgramId === supportProgramId)
   if (!found) return null
 
   return {
-    name: found.pblancNm,
-    organization: found.jrsdInsttNm,
-    // 지원금은 0(무상), 금리 개념이 없는 공고는 null 이다
-    interestRate: found.type === 'LOAN' ? found.interestRate : found.type === 'SUPPORT' ? 0 : null,
-    minAmount: found.type === 'ETC' ? null : found.minBalance,
-    maxAmount: found.type === 'ETC' ? null : found.maxBalance,
-    deadline: found.endDate,
+    supportProgramId: found.supportProgramId,
+    programName: found.pblancNm,
+    jurisdiction: found.jrsdInsttNm,
+    supportType: SUPPORT_PROGRAM_TYPE_LABEL[found.type],
+    startDate: found.startDate,
+    endDate: found.endDate,
+    minBalance: found.type === 'ETC' ? null : found.minBalance,
+    maxBalance: found.type === 'ETC' ? null : found.maxBalance,
   }
 }
 
@@ -110,7 +164,8 @@ export const supportHandlers = [
     const isBookmark = url.searchParams.get('isBookmark')
     const sort = url.searchParams.get('sort')
 
-    let filtered = mockPrograms
+    // 사용자가 누른 담기·빼기를 먼저 반영한다. 안 그러면 표의 리본이 시드에 고정된다
+    let filtered = mockPrograms.map(withBookmark)
     if (type) filtered = filtered.filter((program) => program.type === type)
     if (jrsdInsttNm) filtered = filtered.filter((program) => program.jrsdInsttNm === jrsdInsttNm)
     if (judgement) filtered = filtered.filter((program) => program.status === judgement)
@@ -208,7 +263,7 @@ export const supportHandlers = [
       startDate: found.startDate,
       endDate: found.endDate,
       status: found.status,
-      isBookmark: found.isBookmark,
+      isBookmark: withBookmark(found).isBookmark,
       reqstMthPapersCn: '온라인 접수 혹은 팩스를 통해 접수',
       refrncNm: '스마트상점전문기관 1600-6185',
     }

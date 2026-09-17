@@ -33,10 +33,55 @@ export const endpoints = {
     social: (provider: string) => `/auth/social/${provider}`,
   },
 
-  /** ⚠️ 백엔드 `com.sobi.user` 에 controller 가 없다. 목으로만 돈다 (S15P21D101-377) */
   user: {
-    /** 로그인한 본인 정보. 세션 복구에서 재발급 직후 호출한다 */
+    /**
+     * 로그인한 본인 정보. 세션 복구에서 재발급 직후 호출한다.
+     *
+     * ⚠️ **GET 은 아직 백엔드에 없다.** `UserController` 에 `DELETE /user/me` 는 있지만
+     *    같은 경로의 GET 매핑이 없어 목으로만 돈다 (S15P21D101-377).
+     */
     me: '/user/me',
+    /**
+     * 회원 탈퇴. 되돌릴 수 없다.
+     *
+     * 서버가 `deleted_at` 을 채우고 refreshToken 을 지운 뒤, 응답에 쿠키 만료 헤더를
+     * 실어 보낸다 — 프론트는 메모리에 남은 세션만 치우면 된다.
+     */
+    withdraw: '/user/me',
+    /**
+     * 비밀번호 변경. body 는 `{ password }` — **새 비밀번호 하나뿐이다.**
+     *
+     * ⚠️ 현재 비밀번호를 받지 않는다. 백엔드 `PasswordChangeReqeust` 에 필드가 없어서
+     *    로그인만 돼 있으면 바로 바뀐다. 화면에서 현재 비밀번호를 물어도 서버로 보낼
+     *    곳이 없어 검증되지 않으므로, 묻는 척하지 않기로 했다 (S15P21D101-379).
+     *    백엔드에 `currentPassword` 가 생기면 그때 입력칸을 되살린다.
+     */
+    password: '/user/password',
+    /**
+     * 새 공고 알림 수신 토글. body 가 없다 — 서버가 현재 값을 뒤집고 결과를 준다.
+     */
+    notification: '/user/notification',
+    /**
+     * 생년월일만 저장. body·응답 모두 `{ birthDate }`.
+     *
+     * ⚠️ **지금은 아무도 안 쓴다.** 이름까지 같이 받기로 하면서 아래 `profile` 로
+     *    옮겼다. 백엔드에는 아직 살아 있어서 남겨 둔다 — `profile` 이 올라오면 지운다.
+     */
+    birthDate: '/user/birth-date',
+    /**
+     * 구글 가입자의 이름·생년월일 저장. body·응답 모두 `{ name, birthDate }`.
+     *
+     * 구글은 생일을 주지 않고(가입 시 null), 이름은 구글 프로필 이름이 들어가 있어
+     * 실명이 아닐 수 있다. 둘을 한 요청으로 받는다 — 나눠 보내면 한쪽만 저장된 상태를
+     * 화면이 설명할 방법이 없다.
+     *
+     * 검증은 `name` 이 `@NotBlank @Size(max = 100)`(SignupRequest 와 동일),
+     * `birthDate` 가 `@NotNull @Past`(BirthDateRequest 와 동일).
+     *
+     * ⚠️ **백엔드 작업 대기 중.** 현재 `UserController` 에는 `/birth-date` 만 있다.
+     *    그때까지 목이 받는다 — `mocks/lib/serverFirst.ts` 의 `MOCK_ONLY` 참고.
+     */
+    profile: '/user/profile',
   },
 
   business: {
@@ -76,6 +121,19 @@ export const endpoints = {
   },
 
   /**
+   * 마이데이터 수집 + 자격 판정. 둘 다 본문이 없다.
+   *
+   * ⚠️ 동기 호출이고 응답까지 15~40초 걸린다(`MydataController` 주석). 전역 timeout 이
+   *    10초라 이 둘만 따로 늘려 쓴다 — `features/mydata/api/mydata.ts`.
+   */
+  mydata: {
+    /** 최초 연동. 온보딩 동의 화면에서 한 번 부른다 */
+    link: '/mydata/link',
+    /** 수동 갱신. 쿨다운(기본 24시간)에 걸리면 429 MYDATA_002 */
+    refresh: '/mydata/refresh',
+  },
+
+  /**
    * 신청. 생성은 쿼리로 대상을 받고, 나머지는 applicationId 로 가리킨다.
    *
    * 명세에는 경로 변수가 {programId} 로 적혀 있지만 예시 응답의 path 가
@@ -85,11 +143,11 @@ export const endpoints = {
     create: '/application',
     detail: (applicationId: number) => `/application/${applicationId}`,
     cancel: (applicationId: number) => `/application/${applicationId}`,
-    /** 최종 신청. body 에 applicationId·applyAmount·accountNo */
-    submit: '/application/finan',
-    /** 서류 업로드. multipart. 작성 서류도 같은 곳으로 올리고 검증만 안 한다 */
+    /** 최종 신청. 본문에 amount·accountId */
+    submit: (applicationId: number) => `/application/${applicationId}/submit`,
+    /** ⚠️ 412 대기. 서버에 아직 multipart 엔드포인트가 없다 */
     uploadDocument: '/document',
-    /** 작성 서류 초안 생성. 비동기로 돌고 상세 조회로 결과를 받는다 */
+    /** ⚠️ 413 대기. 서버에 아직 없다 */
     requestDraft: '/document/draft',
     /** 내 신청 목록. 신청 현황 화면이 쓴다 */
     list: '/application',
@@ -133,11 +191,21 @@ export const endpoints = {
    * ⚠️ programId 가 대출 id 와 지원사업 id 를 겸한다. 21번 대출과 21번 지원사업이
    *    둘 다 있을 수 있어 `type` 을 빠뜨리면 엉뚱한 것이 담긴다 — 호출부에서
    *    반드시 같이 보낼 것.
+   *
+   * ⚠️ `type` 에 보내는 값은 `SUPPORT` 다. 백엔드 `BookmarkServiceImpl` 이
+   *    `"LOAN"` · `"SUPPORT"` 두 문자열만 받고 나머지는 400 을 준다.
    */
   bookmark: {
+    /** query `type`. 이미 담긴 것을 또 담으면 409 BOOKMARK_003 */
     add: (programId: number) => `/bookmark/${programId}`,
+    /** query `type`. 담기지 않은 것을 빼면 404 BOOKMARK_005 */
     remove: (programId: number) => `/bookmark/${programId}`,
-    /** 내 관심 목록. `sort` `page` `size` */
+    /**
+     * 내 관심 목록. 대출과 지원사업을 `{ loanList, supportProgramList }` 두 배열로 나눠 준다.
+     *
+     * 페이징·정렬이 없다. 저장해둔 것 전부가 한 번에 온다 — `BookmarkController.getBookmark`
+     * 가 파라미터를 하나도 받지 않는다. 저장 개수가 많아져 잘라야 하면 백엔드부터 고쳐야 한다.
+     */
     me: '/bookmark/me',
   },
 

@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { useState } from 'react'
 import { useNavigate } from 'react-router'
 
 import { useCreateApplication } from '@/features/application/hooks/useApplication'
@@ -10,7 +9,8 @@ import type { ProductStatus } from '@/shared/constants/productStatus'
 import { SUPPORT_STATUS_LABEL } from '@/shared/constants/productStatus'
 import { routeTo } from '@/shared/constants/routes'
 import { useUiStore } from '@/shared/lib/store/useUiStore'
-import BookmarkButton from '@/shared/ui/BookmarkButton'
+import { BOOKMARK_TARGET } from '@/shared/types'
+import BookmarkToggle from '@/shared/ui/BookmarkToggle'
 import Button from '@/shared/ui/Button'
 import Modal from '@/shared/ui/Modal'
 import ProductStatusBadge from '@/shared/ui/ProductStatusBadge'
@@ -85,7 +85,7 @@ export default function SupportProgramDetailModal({
 
   const handleApply = () => {
     createApplication.mutate(
-      { type: APPLICATION_SOURCE.SUPPORT_PROGRAM, programId: supportProgramId },
+      { type: APPLICATION_SOURCE.SUPPORT, programId: supportProgramId },
       {
         onSuccess: (application) =>
           navigate(routeTo.supportProgramApply(application.applicationId)),
@@ -93,10 +93,6 @@ export default function SupportProgramDetailModal({
       },
     )
   }
-
-  // ⚠️ 대출 상세와 같다. `/bookmark` 가 붙으면 useMutation 으로 바꾼다
-  const [override, setOverride] = useState<boolean | null>(null)
-  const bookmarked = override ?? data?.isBookmark ?? false
 
   return (
     <Modal
@@ -111,9 +107,11 @@ export default function SupportProgramDetailModal({
       }
       headerAction={
         data && (
-          <BookmarkButton
-            bookmarked={bookmarked}
-            onToggle={() => setOverride(!bookmarked)}
+          /* ⚠️ 응답 필드가 `bookmarked` 가 아니라 `isBookmark` 다. 대출과 이름이 다르다 */
+          <BookmarkToggle
+            programId={supportProgramId}
+            type={BOOKMARK_TARGET.SUPPORT}
+            bookmarked={data.isBookmark}
             label={data.pblancNm}
           />
         )

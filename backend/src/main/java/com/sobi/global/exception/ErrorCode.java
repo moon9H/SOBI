@@ -34,6 +34,10 @@ public enum ErrorCode {
     LOCAL_LOGIN_ONLY(HttpStatus.BAD_REQUEST, "AUTH_017", "소셜 로그인 계정은 비밀번호를 변경할 수 없습니다."),
     SOCIAL_LOGIN_RESET_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "AUTH_018", "소셜 로그인으로 가입된 계정입니다. 소셜 로그인으로 시도해주세요."),
 
+    // 마이데이터
+    MYDATA_NOT_FOUND(HttpStatus.NOT_FOUND, "MYDATA_001", "마이데이터에 등록되지 않은 사업자입니다."),
+    MYDATA_REFRESH_COOLDOWN(HttpStatus.TOO_MANY_REQUESTS, "MYDATA_002", "마이데이터를 다시 불러오기까지 시간이 남았습니다."),
+
     // business 관련
     VERIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "BUSINESS_001", "사업자 번호가 일치하는 사업자 정보를 찾을 수 없습니다."),
     BUSINESS_INFO_MISMATCH(HttpStatus.BAD_REQUEST, "BUSINESS_002", "입력한 사업자 정보와 실제 등록된 사업자 정보가 일치하지 않습니다."),
@@ -54,6 +58,9 @@ public enum ErrorCode {
     // 외부 API
     FINANCE_API_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "EXTERNAL_001", "금융망 API 호출에 실패했습니다."),
 
+    // 외부 API - AI 서버
+    AI_API_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "EXTERNAL_002", "지원사업 추천 서버 호출에 실패했습니다."),
+
     // funding 관련
     TARGET_AMOUNT_ERROR(HttpStatus.BAD_REQUEST, "FUNDING_001", "목표 금액은 0보다 커야합니다."),
 
@@ -68,7 +75,14 @@ public enum ErrorCode {
     APPLICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "APPLICATION_001", "존재하지 않는 신청입니다."),
     APPLICATION_ALREADY_IN_PROGRESS(HttpStatus.CONFLICT, "APPLICATION_002", "이미 신청이 진행 중이거나 지급이 완료된 상품입니다."),
     APPLICATION_TYPE_BAD_REQUEST(HttpStatus.BAD_REQUEST, "APPLICATION_003", "신청 종류는 LOAN 또는 SUPPORT 만 가능합니다."),
-    APPLICATION_PERIOD_CLOSED(HttpStatus.BAD_REQUEST, "APPLICATION_004", "신청 기간이 아닌 지원사업입니다.");
+    APPLICATION_PERIOD_CLOSED(HttpStatus.BAD_REQUEST, "APPLICATION_004", "신청 기간이 아닌 지원사업입니다."),
+    APPLICATION_STATUS_BAD_REQUEST(HttpStatus.BAD_REQUEST, "APPLICATION_005", "신청 상태 필터는 IN_PROGRESS 또는 DONE 만 가능합니다."),
+    APPLICATION_CANCEL_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "APPLICATION_006", "작성 중인 신청만 취소할 수 있습니다."),
+    APPLICATION_SUBMIT_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "APPLICATION_007", "작성 중인 신청만 제출할 수 있습니다."),
+    APPLICATION_DOCUMENT_NOT_COMPLETED(HttpStatus.BAD_REQUEST, "APPLICATION_008", "모든 서류의 검증이 완료되어야 신청할 수 있습니다."),
+    APPLICATION_AMOUNT_INVALID(HttpStatus.BAD_REQUEST, "APPLICATION_009", "신청 금액이 상품의 한도 범위를 벗어났습니다."),
+    APPLICATION_ACCOUNT_INVALID(HttpStatus.BAD_REQUEST, "APPLICATION_010", "본인의 수시입출금 계좌를 선택해야 합니다."),
+    APPLICATION_NOT_ELIGIBLE(HttpStatus.BAD_REQUEST, "APPLICATION_011", "신청 조건을 충족하지 않습니다.");
 
 
     private final HttpStatus status;

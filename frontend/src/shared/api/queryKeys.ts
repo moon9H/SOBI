@@ -26,6 +26,18 @@ export const queryKeys = {
   },
 
   /**
+   * 관심 목록. 서버가 페이징·정렬을 받지 않아 목록 키에 파라미터가 없다.
+   *
+   * 담기·빼기를 하면 관심 목록만 틀어지는 게 아니다. 대출·지원사업 목록의 북마크
+   * 아이콘과 `bookmarked` 필터 결과도 같이 낡는다. 그래서 토글 뒤에는 `bookmark.all`
+   * 과 함께 `loan.all` · `supportProgram.all` 을 같이 무효화한다 (367).
+   */
+  bookmark: {
+    all: ['bookmark'] as const,
+    me: ['bookmark', 'me'] as const,
+  },
+
+  /**
    * 의무보험 체크리스트. 업종에 걸린 항목이라 페이징·필터가 없어 목록 키에 파라미터가 없다.
    *
    * 상태를 바꾸면 목록과 상세가 같이 틀어지므로 `all` 로 한 번에 무효화한다.
@@ -68,6 +80,18 @@ export const queryKeys = {
   account: {
     all: ['account'] as const,
     list: ['account', 'list'] as const,
+  },
+
+  /**
+   * 마이데이터. 조회 API 가 없어 `link` 는 쿼리 키가 아니라 **뮤테이션 키**로도 쓴다.
+   *
+   * 연동은 동의 화면에서 쏘고 결과는 수집·판정 화면이 읽는다. 화면이 갈려 있어
+   * 뮤테이션 상태를 키로 찾아야 하고(`useMutationState`), 결과 요약은 같은 키로
+   * 캐시에 얹어 판정 화면이 꺼내 쓴다.
+   */
+  mydata: {
+    all: ['mydata'] as const,
+    link: ['mydata', 'link'] as const,
   },
 
   application: {

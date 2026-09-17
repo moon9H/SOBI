@@ -60,9 +60,9 @@ function toUserRole(value: string | null | undefined): UserRole | null {
  * claim 에 `name` 이 없어 이메일 앞부분으로 대신한다. 상단바에 잠깐 다르게 보일 수 있지만,
  * 새로고침했다고 로그아웃되는 것보다는 낫다.
  *
- * ⚠️ role 이 없어도 복원한다. 구글 신규 가입자는 서버가 role 을 넣지 않아 claim 이
- *    비는데, 예전처럼 여기서 포기하면 그 사용자는 새로고침할 때마다 로그아웃됐다.
- *    null 은 예비 창업자로 해석된다 — `isPreOwner` 참고.
+ * ⚠️ role 이 없어도 복원한다. 지금은 `JwtProvider` 가 claim 을 항상 채우지만,
+ *    토큰 형식이 바뀌었을 때 전부 로그아웃시키는 것보다 예비 창업자로 보고 들여보내는
+ *    편이 낫다 — null 해석은 `isPreOwner` 를 따른다.
  */
 export function sessionUserFromToken(token: string): SessionUser | null {
   const claims = parseClaims(token)
@@ -77,5 +77,14 @@ export function sessionUserFromToken(token: string): SessionUser | null {
     email: claims.email,
     name: claims.email.split('@')[0],
     role: toUserRole(claims.role),
+    /*
+     * ⚠️ 여기서의 null 은 '비어 있다' 가 아니라 **'모른다'** 다. JWT claim 에 생년월일이
+     *    없어서 복원할 방법이 없다.
+     *
+     *    생년월일이 비었는지로 무언가를 판단하는 코드는 이 값을 믿으면 안 된다.
+     *    지금 그렇게 쓰는 곳은 `OAuthCallbackPage` 하나인데, 거기는 로그인 응답
+     *    (`LoginResponse.user.birthDate`)을 직접 보므로 이 폴백을 타지 않는다.
+     */
+    birthDate: null,
   }
 }
