@@ -9,7 +9,7 @@ export interface ProfileSetupRequest {
   birthDate: ISODate
 }
 
-/** 저장된 값을 되돌려 준다. 보낸 값을 그대로 쓰지 않는 이유는 아래 주석 참고 */
+/** 서버가 저장된 값을 되돌려 준다 */
 type ProfileSetupResponse = ProfileSetupRequest
 
 /**
@@ -20,17 +20,14 @@ type ProfileSetupResponse = ProfileSetupRequest
  * 실명이 아닐 수 있어 둘 다 로그인 직후에 확인받는다. 로컬 가입은 `SignupRequest` 에서
  * 이미 받으므로 이 흐름을 타지 않는다.
  *
- * 둘을 한 요청으로 보낸다. 나눠 보내면 이름만 저장되고 생년월일은 실패하는 경우가
- * 생기는데, 화면에서 그 반쪽 상태를 사용자에게 설명할 방법이 없다.
+ * ⚠️ 경로 이름이 `birth-date` 인데 **이름도 같이 받는다.** 백엔드가 생년월일만 받던
+ *    엔드포인트에 `name` 을 더한 것이라(`BirthDateRequest`) 이름과 실제가 어긋나 있다.
+ *    서버는 `User.updateProfile(name, birthDate)` 로 둘을 함께 저장한다.
  *
  * 응답으로 저장된 값을 받아 세션을 갱신한다 — 서버가 공백을 다듬는 등 손볼 여지를
  * 남겨두려는 것이다.
- *
- * ⚠️ **백엔드 작업 대기 중이다.** 지금 있는 것은 `PATCH /user/birth-date`(생년월일만)뿐이고,
- *    이름까지 받는 `PATCH /user/profile` 은 요청해 둔 상태다. 그때까지는 목이 받는다 —
- *    `mocks/lib/serverFirst.ts` 의 `MOCK_ONLY` 참고.
  */
 export async function updateProfile(body: ProfileSetupRequest) {
-  const { data } = await api.patch<ProfileSetupResponse>(endpoints.user.profile, body)
+  const { data } = await api.patch<ProfileSetupResponse>(endpoints.user.birthDate, body)
   return data
 }

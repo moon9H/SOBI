@@ -46,8 +46,9 @@ export interface TokenResponse {
 /**
  * 로그인 응답에 실려오는 사용자 정보. 백엔드 `LoginResponse.UserInfo` 와 1:1.
  *
- * `shared/types/user.ts` 의 `User`(테이블 전체)와 다르다. 신용등급·가입 경로·알림 설정
- * 같은 나머지는 `GET /user/me` 가 주기로 되어 있는데 백엔드에 아직 없다.
+ * `shared/types/user.ts` 의 `User`(테이블 전체)와 다르다. 가입 경로는 `GET /user/me` 가
+ * 같이 주지만 이 타입은 안 담는다 — 필요한 화면(마이페이지)이 `GET /user/mypage` 를
+ * 따로 보기 때문이다. 신용등급·알림 설정도 그쪽에 있다.
  *
  * 키가 `id` 가 아니라 **`userId`** 다.
  */
@@ -60,7 +61,7 @@ export interface SessionUser {
    *
    * ⚠️ **구글 가입자는 null 이다.** 구글이 생일을 주지 않아 가입 시점에 채울 수 없다
    *    (V23 마이그레이션 주석: '소셜 가입 시 null, 온보딩에서 입력'). 로그인 직후
-   *    `PATCH /user/profile` 로 받아 채운다 — `ProfileSetupModal` 참고.
+   *    `PATCH /user/birth-date` 로 받아 채운다 — `ProfileSetupModal` 참고.
    *
    *    로컬 가입은 `SignupRequest.birthDate` 가 `@NotNull` 이라 항상 값이 있다.
    */

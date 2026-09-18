@@ -332,9 +332,7 @@ const usedResetTokens = new Set<string>()
  *
  * ⚠️ 남은 계약 불일치
  *    - 로그인 응답이 `refreshToken` 을 바디로 준다. 실제로는 httpOnly 쿠키다
- *    - `GET /user/me` 는 백엔드 미구현이라 목이 유일한 구현이다 — S15P21D101-377.
- *      같은 경로의 **DELETE(탈퇴)와 `PATCH /user/password` 는 백엔드에 있다** —
- *      그쪽은 실서버가 뜨면 실서버 우선 규칙에 따라 목이 비켜선다 (S15P21D101-379)
+ *    - 프론트가 부르는 엔드포인트는 전부 백엔드에 있다. 실서버가 뜨면 목이 비켜선다
  *
  * 가입 흐름은 목에서도 순서를 지켜야 통과한다.
  *    중복 확인 → 발송(쿨다운) → 검증(123456) → 가입
@@ -668,19 +666,18 @@ export const authHandlers = [
   }),
 
   /*
-   * PATCH /api/v1/user/profile
+   * PATCH /api/v1/user/birth-date
    *
    * 구글 가입자가 로그인 직후 이름·생년월일을 채우는 자리다. 저장된 값을 되돌려 준다.
    *
-   * ⚠️ 백엔드에는 아직 생년월일만 받는 `/user/birth-date` 뿐이라, 이 경로는 목이 유일한
-   *    구현이다 — `lib/serverFirst.ts` 의 `MOCK_ONLY` 에 올려서 실서버를 안 물어본다.
-   *    백엔드가 만들면 그 목록에서 빼야 한다.
+   * ⚠️ 경로 이름과 달리 **이름도 받는다.** 백엔드가 생년월일만 받던 엔드포인트에 `name` 을
+   *    더했다 (`BirthDateRequest`).
    *
    * ⚠️ `@NotBlank`·`@Past` 를 흉내 낸다. 목에서 느슨하게 두면 화면 검증이 새도 여기서는
    *    통과해서, 실서버로 바꾼 뒤에야 저장이 안 되는 것을 알게 된다.
    */
-  http.patch('/api/v1/user/profile', async ({ request }) => {
-    const path = '/api/v1/user/profile'
+  http.patch('/api/v1/user/birth-date', async ({ request }) => {
+    const path = '/api/v1/user/birth-date'
     const { name, birthDate } = (await request.json()) as { name?: string; birthDate?: string }
 
     const email = sessionStorage.getItem(SESSION_EMAIL_KEY)

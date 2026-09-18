@@ -70,26 +70,14 @@ export const endpoints = {
      */
     notification: '/user/notification',
     /**
-     * 생년월일만 저장. body·응답 모두 `{ birthDate }`.
-     *
-     * ⚠️ **지금은 아무도 안 쓴다.** 이름까지 같이 받기로 하면서 아래 `profile` 로
-     *    옮겼다. 백엔드에는 아직 살아 있어서 남겨 둔다 — `profile` 이 올라오면 지운다.
-     */
-    birthDate: '/user/birth-date',
-    /**
      * 구글 가입자의 이름·생년월일 저장. body·응답 모두 `{ name, birthDate }`.
      *
-     * 구글은 생일을 주지 않고(가입 시 null), 이름은 구글 프로필 이름이 들어가 있어
-     * 실명이 아닐 수 있다. 둘을 한 요청으로 받는다 — 나눠 보내면 한쪽만 저장된 상태를
-     * 화면이 설명할 방법이 없다.
+     * ⚠️ 경로 이름과 달리 **이름도 같이 받는다.** 생년월일만 받던 엔드포인트에 백엔드가
+     *    `name` 을 더한 것이라 이름이 안 맞는다 — `BirthDateRequest` 참고.
      *
-     * 검증은 `name` 이 `@NotBlank @Size(max = 100)`(SignupRequest 와 동일),
-     * `birthDate` 가 `@NotNull @Past`(BirthDateRequest 와 동일).
-     *
-     * ⚠️ **백엔드 작업 대기 중.** 현재 `UserController` 에는 `/birth-date` 만 있다.
-     *    그때까지 목이 받는다 — `mocks/lib/serverFirst.ts` 의 `MOCK_ONLY` 참고.
+     * 검증은 `name` 이 `@NotBlank @Size(max = 100)`, `birthDate` 가 `@NotNull @Past`.
      */
-    profile: '/user/profile',
+    birthDate: '/user/birth-date',
   },
 
   business: {
@@ -100,7 +88,7 @@ export const endpoints = {
      * 성공하면 서버가 role 을 ENTREPRENEUR 로 바꾼다 — 새 토큰을 받아야 반영된다.
      */
     register: '/business',
-    /** 사이드바 하단 카드에 쓰는 내 업체 정보. 미등록이면 404 BUSINESS_O04 */
+    /** 사이드바 하단 카드에 쓰는 내 업체 정보. 미등록이면 404 BUSINESS_004 */
     me: '/business/me',
   },
 
