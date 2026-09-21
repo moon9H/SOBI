@@ -14,6 +14,8 @@ import ProductCard from '@/shared/ui/ProductCard'
 
 interface LoanStripProps {
   loans: StripSummary<DashboardLoan>
+  /** 판정이 없는 예비창업자 화면은 '지원 가능한' 이라고 말할 수 없다 */
+  title?: string
 }
 
 /**
@@ -41,7 +43,7 @@ function LoanCard({
     <ProductCard
       title={loan.accountName}
       organization={loan.bankName}
-      chips={[`납입횟수 ${loan.period}회`]}
+      chips={[`기간 ${loan.period}일`]}
       amount={toAmountRange(loan.minLoanBalance, loan.maxLoanBalance)}
       isBookmarked={shown}
       onToggleBookmark={() =>
@@ -55,15 +57,15 @@ function LoanCard({
 /**
  * 지원 가능한 대출 스트립.
  *
- * 알약에 상환 횟수만 둔다. 금리는 상품을 고르는 기준이지만 카드 넷을 나란히 놓고
- * 비교할 값이고, 여기는 "이 중에 볼 것이 있나" 를 훑는 자리다 — 금리 비교는 목록
- * 화면의 표가 훨씬 잘한다.
+ * 알약에 대출 기간만 둔다. 상세 모달·관심 목록과 같은 '일' 단위를 쓴다. 금리는 상품을
+ * 고르는 기준이지만 카드 넷을 나란히 놓고 비교할 값이고, 여기는 "이 중에 볼 것이 있나"
+ * 를 훑는 자리다 — 금리 비교는 목록 화면의 표가 훨씬 잘한다.
  *
  * 카드를 누르면 목록 화면과 같은 상세 모달이 이 자리에 뜬다. 주소를 바꾸지 않는
  * 이유: 대시보드에서 상품 하나를 확인하는 것은 잠깐 들여다보는 일이고, /loans 로
  * 옮겨 가면 닫았을 때 대시보드가 아니라 목록에 서 있게 된다.
  */
-export default function LoanStrip({ loans }: LoanStripProps) {
+export default function LoanStrip({ loans, title = '지원 가능한 대출' }: LoanStripProps) {
   const [openLoanId, setOpenLoanId] = useState<number | null>(null)
 
   /*
@@ -84,7 +86,7 @@ export default function LoanStrip({ loans }: LoanStripProps) {
   return (
     <>
       <CardStrip
-        title="지원 가능한 대출"
+        title={title}
         count={loans.possible}
         footer={
           <NavButton to={ROUTES.LOANS} variant="outline" size="sm" className="w-full">
