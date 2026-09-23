@@ -1,4 +1,4 @@
-# 소비 (SOBI) — 소상공인 정책자금 플랫폼
+# <img src="frontend/public/favicon.svg" alt="" width="23" align="absmiddle" /> 소비 (SOBI) — 소상공인 정책자금 플랫폼소비 (SOBI) — 소상공인 정책자금 플랫폼
 
 > **받을 수 있는 정책자금, 3분 만에 확인하세요.**
 > 마이데이터만 연동하면 지금 신청 가능한 대출·지원사업만 골라 드리고, 서류 작성부터 검증·상환까지 한 곳에서 끝냅니다.
@@ -16,7 +16,7 @@
 
 ---
 
-## 📌 목차
+## <img src="frontend/public/favicon.svg" alt="" width="22" align="absmiddle" /> 목차
 
 1. [왜 만들었나](#-왜-만들었나)
 2. [주요 기능](#-주요-기능)
@@ -28,7 +28,7 @@
 
 ---
 
-## 🎯 왜 만들었나
+## <img src="frontend/public/favicon.svg" alt="" width="22" align="absmiddle" /> 왜 만들었나
 
 2026년 창업·소상공인 지원 통합공고 기준으로 **111개 기관이 508개 사업에 3조 4,645억 원**을 씁니다. 그런데 사장님들은 자기가 받을 수 있는 게 뭔지 모릅니다.
 
@@ -42,7 +42,7 @@
 ---
 
 
-## ✨ 주요 기능
+## <img src="frontend/public/favicon.svg" alt="" width="22" align="absmiddle" /> 주요 기능
 
 ### 1. 자격 판정 — 지금 받을 수 있는지 3분 안에
 
@@ -115,7 +115,7 @@ SSAFY 금융망과 연동해 실행된 대출의 잔액·다음 상환액·남�
 ---
 
 
-## 🛠 기술 스택
+## <img src="frontend/public/favicon.svg" alt="" width="22" align="absmiddle" /> 기술 스택
 
 | 영역 | 기술 |
 |---|---|
@@ -129,7 +129,7 @@ SSAFY 금융망과 연동해 실행된 대출의 잔액·다음 상환액·남�
 
 ---
 
-## 🏗 시스템 아키텍처
+## <img src="frontend/public/favicon.svg" alt="" width="22" align="absmiddle" /> 시스템 아키텍처
 
 ```
                         ┌──────────────────────────────────────────────┐
@@ -162,7 +162,7 @@ SSAFY 금융망과 연동해 실행된 대출의 잔액·다음 상환액·남�
 
 ---
 
-## 🤖 AI 파이프라인
+## <img src="frontend/public/favicon.svg" alt="" width="22" align="absmiddle" /> AI 파이프라인
 
 ### 지원사업 자격 판정
 
@@ -207,7 +207,7 @@ USER · BUSINESS · MYDATA · PROGRAM 소스에서 값 resolve ─────�
 ---
 
 
-## 👥 팀
+## <img src="frontend/public/favicon.svg" alt="" width="22" align="absmiddle" /> 팀
 
 SSAFY 15기 특화 프로젝트 · D101
 
@@ -222,6 +222,6 @@ SSAFY 15기 특화 프로젝트 · D101
 
 ---
 
-## 📄 산출물
+## <img src="frontend/public/favicon.svg" alt="" width="22" align="absmiddle" /> 산출물
 
 
