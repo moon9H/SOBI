@@ -10,9 +10,8 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.141-009688?logo=fastapi&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16%20%2B%20pgvector-4169E1?logo=postgresql&logoColor=white)
 
-🔗 **서비스** : https://j15d101.p.ssafy.io
+![썸네일](./docs/SOBI.png)
 
-> 로컬 실행·배포 방법은 별도 **포팅 매뉴얼**에 있습니다.
 
 ---
 
